@@ -1,0 +1,109 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Verificação de Nota Fiscal e Devolução</title>
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+</head>
+
+<body>
+    <div class="container">
+
+        <!-- Cabeçalho -->
+        <header>
+            <h1>Verificação de Nota Fiscal e Devolução</h1>
+            <p>Verifique, visualize e registre devoluções de forma prática</p>
+        </header>
+
+        <!-- Etapa 1: Verificar Nota -->
+        <section class="form-section">
+            <center><h2> Verificar Nota</h2></center>
+            <form method="post">
+                {% csrf_token %}
+                {{ verificacao_form.as_p }}
+                <button type="submit" name="verificacao-verificar" class="add-btn">Verificar Nota</button>
+            </form>
+        </section>
+
+        {% if nota %}
+        <!-- Etapa 2: Itens da Nota Fiscal -->
+        <section class="form-section">
+            <h2> Itens da Nota Fiscal {{ nota.numero_nota }}</h2>
+
+            {% if itens_nota %}
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Produto</th>
+                            <th>Quantidade</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in itens_nota %}
+                        <tr>
+                            <td>{{ item.produto.descricao }}</td>
+                            <td>{{ item.quantidade }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <p>Esta nota fiscal não possui itens cadastrados.</p>
+            {% endif %}
+        </section>
+
+        <!-- Etapa 3: Adicionar Produto à Devolução -->
+        <section class="form-section">
+            <h2> Adicionar Produto à Devolução</h2>
+            <form method="post">
+                {% csrf_token %}
+                {{ devolucao_form.as_p }}
+                <button type="submit" name="adicionar-item" class="add-btn">Adicionar à Lista</button>
+            </form>
+
+            {% if lista_temp %}
+                <hr>
+                <h3>Itens adicionados à devolução</h3>
+                <form method="post">
+                    {% csrf_token %}
+                    <ul>
+                        {% for item in lista_temp %}
+                        <li>
+                            <input type="checkbox" name="itens_marcados" value="{{ forloop.counter0 }}">
+                            {{ item.produto_nome }} — {{ item.quantidade }} unid. ({{ item.motivo }})
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    <div class="button-group">
+                        <button type="submit" name="descartar-itens" class="discard-btn">Descartar Selecionados</button>
+                        <button type="submit" name="registrar-devolucao" class="submit-btn">Registrar Devolução</button>
+                    </div>
+                </form>
+            {% endif %}
+        </section>
+        {% endif %}
+
+        {% if mensagens %}
+            <section class="messages">
+                <h3>Mensagens:</h3>
+                <ul>
+                    {% for msg in mensagens %}
+                        <li class="message {% if 'erro' in msg|lower %}error{% elif 'sucesso' in msg|lower %}success{% else %}warning{% endif %}">
+                            {{ msg }}
+                        </li>
+                    {% endfor %}
+                </ul>
+            </section>
+        {% endif %}
+
+
+        <!-- Botões de ação final -->
+        <div class="button-group">
+            <button type="button" class="discard-btn" onclick="window.location.reload()">Recomeçar</button>
+            <button type="button" class="discard-btn" onclick="window.location.href='?resetar=1'">Voltar ao início/ Finalizar</button>
+        </div>
+
+    </div>
+</body>
+</html>

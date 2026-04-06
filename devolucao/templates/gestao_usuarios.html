@@ -1,0 +1,407 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestão de Usuários</title>
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    <style>
+        body { background: var(--bg); color: var(--text); min-height: 100vh; }
+
+        /* ── Topbar ────────────────────────────────────── */
+        .topbar { position: sticky; top: 0; z-index: 100; background: var(--surface); border-bottom: 1px solid var(--border); }
+        .topbar__inner { max-width: 1200px; margin: 0 auto; padding: 0 24px; height: 56px; display: flex; align-items: center; gap: 12px; }
+        .topbar__back { display: flex; align-items: center; gap: 6px; color: var(--text-muted); font-size: 13px; text-decoration: none; }
+        .topbar__back:hover { color: var(--text); }
+        .topbar__title { font-size: 15px; font-weight: 700; flex: 1; }
+
+        /* ── Page ──────────────────────────────────────── */
+        .page { max-width: 1200px; margin: 0 auto; padding: 28px 24px; }
+        .page-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 24px; gap: 12px; flex-wrap: wrap; }
+        .page-header h1 { font-size: 20px; font-weight: 700; }
+        .page-header p  { font-size: 13px; color: var(--text-muted); margin-top: 2px; }
+
+        /* ── Alertas ───────────────────────────────────── */
+        .alert { padding: 10px 14px; border-radius: var(--r-sm); font-size: 13.5px; font-weight: 500; margin-bottom: 16px; }
+        .alert-success { background: #f0fdf4; border: 1.5px solid #bbf7d0; color: #15803d; }
+        .alert-warning { background: #fffbeb; border: 1.5px solid #fde68a; color: #92400e; }
+        .alert-error   { background: #fff5f5; border: 1.5px solid #fca5a5; color: #b91c1c; }
+
+        /* ── Abas ──────────────────────────────────────── */
+        .tabs-nav { display: flex; border-bottom: 2px solid var(--border); margin-bottom: 20px; gap: 0; }
+        .tab-btn { padding: 10px 22px; font-size: 13.5px; font-weight: 600; cursor: pointer; border: none; background: none; color: var(--text-muted); font-family: 'Sora', sans-serif; border-bottom: 2px solid transparent; margin-bottom: -2px; transition: color .15s, border-color .15s; display: flex; align-items: center; gap: 7px; }
+        .tab-btn.active { color: var(--blue); border-bottom-color: var(--blue); }
+        .tab-btn:hover:not(.active) { color: var(--text); }
+        .tab-count-badge { font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: var(--r-full); background: var(--surface-2); color: var(--text-muted); }
+        .tab-btn.active .tab-count-badge { background: var(--blue-bg); color: var(--blue-dark); }
+
+        .tab-panel { display: none; }
+        .tab-panel.active { display: block; }
+
+        /* ── Card ──────────────────────────────────────── */
+        .card { background: var(--surface); border: 1.5px solid var(--border); border-radius: var(--r-md); overflow: hidden; }
+        .card__header { padding: 14px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+        .card__header-title { font-size: 14px; font-weight: 600; }
+
+        /* ── Toolbar ───────────────────────────────────── */
+        .toolbar { display: flex; align-items: center; gap: 10px; padding: 12px 20px; border-bottom: 1px solid var(--border); }
+        .search-wrap { position: relative; flex: 1; max-width: 320px; }
+        .search-wrap svg { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--text-muted); }
+        .search-input { width: 100%; box-sizing: border-box; padding-left: 32px !important; }
+
+        /* ── Tabela ────────────────────────────────────── */
+        table { width: 100%; border-collapse: collapse; }
+        th { text-align: left; padding: 10px 16px; font-size: 11.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--text-muted); border-bottom: 1px solid var(--border); background: var(--bg); }
+        td { padding: 13px 16px; font-size: 13.5px; border-bottom: 1px solid #f0f0f0; vertical-align: middle; }
+        tr:last-child td { border-bottom: none; }
+        tr:hover td { background: #fafafa; }
+
+        /* ── Badges ────────────────────────────────────── */
+        .role-badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: var(--r-full); font-size: 11.5px; font-weight: 600; }
+        .role-super   { background: var(--blue-bg); border: 1px solid var(--blue-border); color: var(--blue-dark); }
+        .role-admin   { background: #fef9c3; border: 1px solid #fde68a; color: #92400e; }
+        .role-cliente { background: #f0fdf4; border: 1px solid #bbf7d0; color: #15803d; }
+        .role-you     { background: #f5f3ff; border: 1px solid #ddd6fe; color: #6d28d9; }
+
+        .perm-list { display: flex; flex-wrap: wrap; gap: 4px; }
+        .perm-pill { padding: 2px 8px; border-radius: var(--r-full); font-size: 11px; font-weight: 500; }
+        .perm-on  { background: #f0fdf4; border: 1px solid #bbf7d0; color: #15803d; }
+        .perm-off { background: #f9fafb; border: 1px solid var(--border); color: var(--text-muted); text-decoration: line-through; }
+        .perm-all { background: var(--blue-bg); border: 1px solid var(--blue-border); color: var(--blue-dark); }
+
+        /* ── Ações ─────────────────────────────────────── */
+        .action-btns { display: flex; gap: 8px; justify-content: flex-end; }
+
+        /* ── Empty ─────────────────────────────────────── */
+        .empty { padding: 48px 24px; text-align: center; }
+        .empty__icon  { font-size: 36px; margin-bottom: 12px; }
+        .empty__title { font-size: 16px; font-weight: 600; margin-bottom: 4px; }
+        .empty__sub   { font-size: 13px; color: var(--text-muted); }
+
+        /* ── Modal confirmação ─────────────────────────── */
+        .overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 500; align-items: center; justify-content: center; }
+        .overlay.open { display: flex; }
+        .modal { background: var(--surface); border-radius: var(--r-md); padding: 28px; max-width: 420px; width: 90%; box-shadow: 0 16px 48px rgba(0,0,0,.2); }
+        .modal h3 { font-size: 17px; font-weight: 700; margin-bottom: 8px; }
+        .modal p  { font-size: 13.5px; color: var(--text-2); line-height: 1.5; }
+        .modal-footer { display: flex; gap: 10px; margin-top: 24px; justify-content: flex-end; }
+
+        /* ── Toast ─────────────────────────────────────── */
+        #toast { position: fixed; bottom: 24px; right: 24px; z-index: 9999; display: flex; flex-direction: column; gap: 8px; }
+        .toast-item { padding: 10px 16px; border-radius: var(--r-sm); font-size: 13.5px; font-weight: 500; color: #fff; box-shadow: 0 4px 14px rgba(0,0,0,.18); animation: toastIn .25s ease; }
+        .toast-ok  { background: #16a34a; }
+        .toast-err { background: #dc2626; }
+        @keyframes toastIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* ── Info cliente ──────────────────────────────── */
+        .cliente-doc  { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+        .cliente-info { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+
+        @media (max-width: 768px) {
+            .page-header { flex-direction: column; }
+            th:nth-child(3), td:nth-child(3) { display: none; }
+        }
+    </style>
+</head>
+<body>
+
+<nav class="topbar">
+    <div class="topbar__inner">
+        <a href="{% url 'painel_admin' %}" class="topbar__back">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 2L4 7l5 5" stroke-linecap="round"/></svg>
+            Painel
+        </a>
+        <span class="topbar__title">Gestão de Usuários</span>
+        <a href="{% url 'importar_notas' %}" class="btn btn-ghost btn-sm" style="margin-left:auto">📥 Importar Notas</a>
+        <a href="{% url 'logout' %}" class="btn btn-ghost btn-sm">Sair</a>
+    </div>
+</nav>
+
+<div class="page">
+
+    <div class="page-header">
+        <div>
+            <h1>Gestão de Usuários</h1>
+            <p>Gerencie clientes e administradores do sistema.</p>
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+            <a href="{% url 'usuario_criar' %}?tipo=cliente" class="btn btn-secondary">
+                <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"><path d="M6.5 1v11M1 6.5h11"/></svg>
+                Novo cliente
+            </a>
+            <a href="{% url 'usuario_criar' %}?tipo=admin" class="btn btn-primary">
+                <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"><path d="M6.5 1v11M1 6.5h11"/></svg>
+                Novo administrador
+            </a>
+        </div>
+    </div>
+
+    {% for msg in messages %}
+    <div class="alert {% if msg.tags == 'success' %}alert-success{% elif msg.tags == 'warning' %}alert-warning{% else %}alert-error{% endif %}">
+        {{ msg }}
+    </div>
+    {% endfor %}
+
+    <!-- ── Abas ──────────────────────────────────────── -->
+    <div class="tabs-nav">
+        <button class="tab-btn active" onclick="trocarAba('clientes', this)">
+            👤 Clientes
+            <span class="tab-count-badge">{{ clientes|length }}</span>
+        </button>
+        <button class="tab-btn" onclick="trocarAba('admins', this)">
+            ⚙ Administradores
+            <span class="tab-count-badge">{{ admins|length }}</span>
+        </button>
+    </div>
+
+    <!-- ════════════════════════════════════════════════ -->
+    <!-- ABA CLIENTES                                     -->
+    <!-- ════════════════════════════════════════════════ -->
+    <div id="tab-clientes" class="tab-panel active">
+        <div class="card">
+            <div class="card__header">
+                <span class="card__header-title">Lista de clientes</span>
+                <div class="search-wrap">
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="6" cy="6" r="5"/><path d="m10.5 10.5 2.5 2.5" stroke-linecap="round"/></svg>
+                    <input type="text" class="search-input" id="search-clientes" placeholder="Buscar por nome, CPF ou CNPJ…" oninput="filtrar('clientes', this.value)">
+                </div>
+            </div>
+
+            {% if clientes %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>Nome / Razão Social</th>
+                        <th>Documento</th>
+                        <th>Contato</th>
+                        <th>Tipo</th>
+                        <th style="text-align:right">Ações</th>
+                    </tr>
+                </thead>
+                <tbody id="tbody-clientes">
+                    {% for item in clientes %}
+                    <tr class="cliente-row"
+                        data-nome="{{ item.cliente.nome_exibicao|lower }}"
+                        data-doc="{{ item.cliente.documento|default:'' }}">
+                        <td>
+                            <div style="font-weight:600">{{ item.cliente.nome_exibicao|default:"—" }}</div>
+                            <div class="cliente-doc">{{ item.usuario.email }}</div>
+                        </td>
+                        <td>
+                            <code style="font-size:12px">{{ item.cliente.documento|default:"—" }}</code>
+                        </td>
+                        <td>
+                            <div class="cliente-info">{{ item.cliente.telefone|default:"Sem telefone" }}</div>
+                            {% if item.cliente.cidade %}
+                            <div class="cliente-info">{{ item.cliente.cidade }}{% if item.cliente.estado %}/{{ item.cliente.estado }}{% endif %}</div>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="role-badge role-cliente">
+                                {% if item.cliente.tipo == 'PF' %}👤 Pessoa Física{% else %}🏢 Pessoa Jurídica{% endif %}
+                            </span>
+                        </td>
+                        <td>
+                            <div class="action-btns">
+                                <a href="{% url 'usuario_editar' item.usuario.pk %}" class="btn btn-secondary btn-sm">Editar</a>
+                                <button class="btn btn-danger btn-sm"
+                                        onclick="confirmarExclusao({{ item.usuario.pk }}, '{{ item.cliente.nome_exibicao }}', 'cliente')">
+                                    Excluir
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="empty">
+                <div class="empty__icon">👤</div>
+                <div class="empty__title">Nenhum cliente cadastrado</div>
+                <div class="empty__sub">Clique em "Novo cliente" para adicionar o primeiro.</div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- ════════════════════════════════════════════════ -->
+    <!-- ABA ADMINISTRADORES                              -->
+    <!-- ════════════════════════════════════════════════ -->
+    <div id="tab-admins" class="tab-panel">
+        <div class="card">
+            <div class="card__header">
+                <span class="card__header-title">Lista de administradores</span>
+                <div class="search-wrap">
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="6" cy="6" r="5"/><path d="m10.5 10.5 2.5 2.5" stroke-linecap="round"/></svg>
+                    <input type="text" class="search-input" id="search-admins" placeholder="Buscar por e-mail…" oninput="filtrar('admins', this.value)">
+                </div>
+            </div>
+
+            {% if admins %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>E-mail</th>
+                        <th>Tipo</th>
+                        <th>Permissões</th>
+                        <th style="text-align:right">Ações</th>
+                    </tr>
+                </thead>
+                <tbody id="tbody-admins">
+                    {% for item in admins %}
+                    <tr class="admin-row" data-email="{{ item.usuario.email|lower }}">
+                        <td>
+                            <div style="font-weight:600">{{ item.usuario.email }}</div>
+                            {% if item.usuario.pk == request.user.pk %}
+                            <div style="font-size:11px;color:var(--text-muted);margin-top:2px">Você</div>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if item.usuario.pk == request.user.pk %}
+                                <span class="role-badge role-you">✓ Você</span>
+                            {% elif item.is_superuser %}
+                                <span class="role-badge role-super">★ Superusuário</span>
+                            {% else %}
+                                <span class="role-badge role-admin">Administrador</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if item.is_superuser %}
+                                <span class="perm-pill perm-all">Todas as permissões</span>
+                            {% else %}
+                                <div class="perm-list">
+                                    {% for perm in item.permissoes %}
+                                    <span class="perm-pill {% if perm.tem %}perm-on{% else %}perm-off{% endif %}">
+                                        {{ perm.label }}
+                                    </span>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="action-btns">
+                                {% if item.usuario.pk != request.user.pk %}
+                                <a href="{% url 'usuario_editar' item.usuario.pk %}" class="btn btn-secondary btn-sm">Editar</a>
+                                <button class="btn btn-danger btn-sm"
+                                        onclick="confirmarExclusao({{ item.usuario.pk }}, '{{ item.usuario.email }}', 'admin')">
+                                    Excluir
+                                </button>
+                                {% else %}
+                                <span style="font-size:12px;color:var(--text-muted)">Sua conta</span>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="empty">
+                <div class="empty__icon">⚙</div>
+                <div class="empty__title">Nenhum administrador encontrado</div>
+                <div class="empty__sub">Crie o primeiro usando o botão acima.</div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+</div>
+
+<!-- ── Modal de confirmação ───────────────────────────── -->
+<div class="overlay" id="modalExclusao">
+    <div class="modal">
+        <h3>Excluir usuário</h3>
+        <p id="modalTexto">Tem certeza? Esta ação não pode ser desfeita.</p>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="fecharModal()">Cancelar</button>
+            <button class="btn btn-danger" id="btnExcluir">Excluir</button>
+        </div>
+    </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+let idParaExcluir = null;
+
+// ── Abas ──────────────────────────────────────────────
+function trocarAba(nome, btn) {
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById(`tab-${nome}`).classList.add('active');
+    btn.classList.add('active');
+}
+
+// ── Busca inline ──────────────────────────────────────
+function filtrar(aba, query) {
+    const q = query.toLowerCase();
+    const seletor = aba === 'clientes' ? '.cliente-row' : '.admin-row';
+    document.querySelectorAll(seletor).forEach(row => {
+        const texto = aba === 'clientes'
+            ? (row.dataset.nome + ' ' + row.dataset.doc)
+            : row.dataset.email;
+        row.style.display = texto.includes(q) ? '' : 'none';
+    });
+}
+
+// ── Exclusão ──────────────────────────────────────────
+function confirmarExclusao(id, nome, tipo) {
+    idParaExcluir = id;
+    document.getElementById('modalTexto').textContent =
+        `Tem certeza que deseja excluir "${nome}"? Esta ação não pode ser desfeita.`;
+    document.getElementById('modalExclusao').classList.add('open');
+}
+
+function fecharModal() {
+    document.getElementById('modalExclusao').classList.remove('open');
+    idParaExcluir = null;
+}
+
+document.getElementById('btnExcluir').addEventListener('click', async () => {
+    if (!idParaExcluir) return;
+    const btn = document.getElementById('btnExcluir');
+    btn.disabled = true;
+    btn.textContent = 'Excluindo…';
+
+    try {
+        const res  = await fetch(`/painel/usuarios/${idParaExcluir}/excluir/`, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': getCsrf() },
+        });
+        const data = await res.json();
+
+        if (data.success) {
+            toast(`Usuário ${data.nome} excluído.`, 'ok');
+            fecharModal();
+            setTimeout(() => location.reload(), 1200);
+        } else {
+            toast(data.error || 'Erro ao excluir.', 'err');
+            btn.disabled = false;
+            btn.textContent = 'Excluir';
+        }
+    } catch {
+        toast('Erro de conexão.', 'err');
+        btn.disabled = false;
+        btn.textContent = 'Excluir';
+    }
+});
+
+document.getElementById('modalExclusao').addEventListener('click', e => {
+    if (e.target === e.currentTarget) fecharModal();
+});
+
+function getCsrf() {
+    return (document.cookie.match(/csrftoken=([^;]+)/) || [])[1] || '';
+}
+
+function toast(msg, type) {
+    const el = document.createElement('div');
+    el.className = `toast-item toast-${type}`;
+    el.textContent = msg;
+    document.getElementById('toast').appendChild(el);
+    setTimeout(() => el.remove(), 3500);
+}
+</script>
+</body>
+</html>

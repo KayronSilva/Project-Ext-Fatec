@@ -1,0 +1,260 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cadastro — Portal de Devoluções</title>
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    <style>
+        body { display: flex; align-items: flex-start; justify-content: center; min-height: 100vh; padding: 40px 24px; }
+
+        .auth-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            box-shadow: var(--shadow-lg);
+            padding: 40px 44px;
+            width: 100%; max-width: 580px;
+            animation: rise .4s cubic-bezier(.22,1,.36,1) both;
+        }
+
+        .auth-logo { font-size: 24px; font-weight: 800; letter-spacing: -.5px; color: var(--text); margin-bottom: 4px; }
+        .auth-logo span { color: var(--blue); }
+        .auth-sub  { font-size: 13px; color: var(--text-muted); margin-bottom: 28px; }
+
+        /* Tipo toggle */
+        .tipo-toggle {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 24px;
+        }
+        .tipo-label {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 13px 16px;
+            border: 1.5px solid var(--border-strong);
+            border-radius: var(--r-sm);
+            cursor: pointer;
+            background: var(--surface-2);
+            transition: all .15s;
+            font-size: 13.5px;
+            font-weight: 600;
+            color: var(--text-2);
+        }
+        .tipo-label:hover { border-color: var(--blue); background: var(--blue-bg); color: var(--blue); }
+        .tipo-label input[type="radio"] { display: none; }
+        .tipo-label.selected {
+            border-color: var(--blue);
+            background: var(--blue-bg);
+            color: var(--blue);
+            box-shadow: 0 0 0 3px rgba(29,82,245,.12);
+        }
+        .tipo-label .tipo-icon { font-size: 20px; }
+
+        .section-divider {
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .1em;
+            color: var(--text-faint);
+            margin: 20px 0 12px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .section-divider::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: var(--border);
+        }
+
+        .fields-pf, .fields-pj { display: none; }
+        .fields-pf.active, .fields-pj.active { display: contents; }
+
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+        .span-2    { grid-column: span 2; }
+
+        .btn-block { width: 100%; justify-content: center; padding: 11px; font-size: 14px; margin-top: 8px; }
+
+        .auth-footer { margin-top: 20px; font-size: 13px; color: var(--text-muted); text-align: center; }
+        .auth-footer a { color: var(--blue); font-weight: 600; text-decoration: none; }
+        .auth-footer a:hover { text-decoration: underline; }
+
+        .error-banner {
+            background: var(--red-bg);
+            border: 1.5px solid var(--red-border);
+            border-radius: var(--r-sm);
+            padding: 10px 14px;
+            font-size: 13px;
+            color: var(--red);
+            margin-bottom: 16px;
+        }
+        .field-err { color: var(--red-dot); font-size: 12px; margin-top: 3px; }
+    </style>
+</head>
+<body>
+<div class="auth-card">
+    <div class="auth-logo">Portal <span>Dev</span></div>
+    <p class="auth-sub">Crie sua conta para gerenciar devoluções</p>
+
+    {% if form.non_field_errors %}
+    <div class="error-banner">{{ form.non_field_errors.0 }}</div>
+    {% endif %}
+
+    <form method="POST" novalidate id="form-cadastro">
+        {% csrf_token %}
+
+        <!-- Tipo de cliente -->
+        <div class="tipo-toggle" id="tipo-toggle">
+            <label class="tipo-label {% if form.tipo.value == 'PF' or not form.tipo.value %}selected{% endif %}" id="label-pf">
+                <input type="radio" name="tipo" value="PF"
+                       {% if form.tipo.value == 'PF' or not form.tipo.value %}checked{% endif %}>
+                <span class="tipo-icon">👤</span>
+                <div>
+                    <div>Pessoa Física</div>
+                    <div style="font-size:11px;font-weight:400;color:var(--text-muted)">CPF</div>
+                </div>
+            </label>
+            <label class="tipo-label {% if form.tipo.value == 'PJ' %}selected{% endif %}" id="label-pj">
+                <input type="radio" name="tipo" value="PJ"
+                       {% if form.tipo.value == 'PJ' %}checked{% endif %}>
+                <span class="tipo-icon">🏢</span>
+                <div>
+                    <div>Pessoa Jurídica</div>
+                    <div style="font-size:11px;font-weight:400;color:var(--text-muted)">CNPJ</div>
+                </div>
+            </label>
+        </div>
+
+        <div class="form-grid">
+
+            <!-- ── Campos exclusivos PF ── -->
+            <div class="fields-pf span-2 {% if form.tipo.value != 'PJ' %}active{% endif %}">
+                <div class="form-grid" style="display:grid">
+                    <div class="field">
+                        <label>Nome completo</label>
+                        <input type="text" name="nome" value="{{ form.nome.value|default:'' }}"
+                               placeholder="João da Silva">
+                        {% if form.nome.errors %}<div class="field-err">{{ form.nome.errors.0 }}</div>{% endif %}
+                    </div>
+                    <div class="field">
+                        <label>CPF</label>
+                        <input type="text" name="cpf" id="id_cpf"
+                               value="{{ form.cpf.value|default:'' }}"
+                               placeholder="000.000.000-00" maxlength="14">
+                        {% if form.cpf.errors %}<div class="field-err">{{ form.cpf.errors.0 }}</div>{% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── Campos exclusivos PJ ── -->
+            <div class="fields-pj span-2 {% if form.tipo.value == 'PJ' %}active{% endif %}">
+                <div class="form-grid" style="display:grid">
+                    <div class="field">
+                        <label>Razão Social</label>
+                        <input type="text" name="razao_social"
+                               value="{{ form.razao_social.value|default:'' }}"
+                               placeholder="Empresa Ltda">
+                        {% if form.razao_social.errors %}<div class="field-err">{{ form.razao_social.errors.0 }}</div>{% endif %}
+                    </div>
+                    <div class="field">
+                        <label>CNPJ</label>
+                        <input type="text" name="cnpj" id="id_cnpj"
+                               value="{{ form.cnpj.value|default:'' }}"
+                               placeholder="00.000.000/0000-00" maxlength="18">
+                        {% if form.cnpj.errors %}<div class="field-err">{{ form.cnpj.errors.0 }}</div>{% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── Campos comuns ── -->
+            <div class="field span-2">
+                <label>E-mail</label>
+                <input type="email" name="email" value="{{ form.email.value|default:'' }}"
+                       placeholder="seu@email.com" autocomplete="email">
+                {% if form.email.errors %}<div class="field-err">{{ form.email.errors.0 }}</div>{% endif %}
+            </div>
+
+            <div class="field">
+                <label>Telefone</label>
+                <input type="text" name="telefone" value="{{ form.telefone.value|default:'' }}"
+                       placeholder="(00) 00000-0000" maxlength="20">
+                {% if form.telefone.errors %}<div class="field-err">{{ form.telefone.errors.0 }}</div>{% endif %}
+            </div>
+
+            <div class="field">
+                <label>Senha</label>
+                <input type="password" name="senha" placeholder="Mínimo 8 caracteres" autocomplete="new-password">
+                {% if form.senha.errors %}<div class="field-err">{{ form.senha.errors.0 }}</div>{% endif %}
+            </div>
+
+            <div class="field span-2">
+                <label>Endereço</label>
+                <input type="text" name="endereco" value="{{ form.endereco.value|default:'' }}"
+                       placeholder="Rua, número, bairro, cidade — UF">
+                {% if form.endereco.errors %}<div class="field-err">{{ form.endereco.errors.0 }}</div>{% endif %}
+            </div>
+
+            <div class="field span-2">
+                <label>Confirmar Senha</label>
+                <input type="password" name="confirmar_senha" placeholder="Repita a senha" autocomplete="new-password">
+                {% if form.confirmar_senha.errors %}<div class="field-err">{{ form.confirmar_senha.errors.0 }}</div>{% endif %}
+            </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-block">
+            Criar conta
+            <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M1 6.5h11M7 1l5.5 5.5L7 12"/>
+            </svg>
+        </button>
+    </form>
+
+    <p class="auth-footer">
+        Já tem conta? <a href="{% url 'login' %}">Fazer login</a>
+    </p>
+</div>
+
+<script>
+(function () {
+    const labelPF = document.getElementById('label-pf');
+    const labelPJ = document.getElementById('label-pj');
+    const fieldsPF = document.querySelectorAll('.fields-pf');
+    const fieldsPJ = document.querySelectorAll('.fields-pj');
+
+    function setTipo(tipo) {
+        labelPF.classList.toggle('selected', tipo === 'PF');
+        labelPJ.classList.toggle('selected', tipo === 'PJ');
+        fieldsPF.forEach(el => el.classList.toggle('active', tipo === 'PF'));
+        fieldsPJ.forEach(el => el.classList.toggle('active', tipo === 'PJ'));
+    }
+
+    labelPF.addEventListener('click', () => setTipo('PF'));
+    labelPJ.addEventListener('click', () => setTipo('PJ'));
+
+    // Máscara simples de CPF: 000.000.000-00
+    document.getElementById('id_cpf')?.addEventListener('input', function () {
+        let v = this.value.replace(/\D/g, '').slice(0, 11);
+        if (v.length > 9)      v = v.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+        else if (v.length > 6) v = v.replace(/(\d{3})(\d{3})(\d+)/, '$1.$2.$3');
+        else if (v.length > 3) v = v.replace(/(\d{3})(\d+)/, '$1.$2');
+        this.value = v;
+    });
+
+    // Máscara simples de CNPJ: 00.000.000/0000-00
+    document.getElementById('id_cnpj')?.addEventListener('input', function () {
+        let v = this.value.replace(/\D/g, '').slice(0, 14);
+        if (v.length > 12)     v = v.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5');
+        else if (v.length > 8) v = v.replace(/(\d{2})(\d{3})(\d{3})(\d+)/, '$1.$2.$3/$4');
+        else if (v.length > 5) v = v.replace(/(\d{2})(\d{3})(\d+)/, '$1.$2.$3');
+        else if (v.length > 2) v = v.replace(/(\d{2})(\d+)/, '$1.$2');
+        this.value = v;
+    });
+})();
+</script>
+</body>
+</html>

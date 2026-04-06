@@ -1,0 +1,798 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Minhas Devoluções</title>
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    <style>
+        /* ── Foto thumb ────────────────────────────────────────── */
+        .item-foto-wrap { display:flex; align-items:center; gap:8px; margin-top:6px; }
+        .item-foto-thumb { width:52px; height:52px; object-fit:cover; border-radius:6px; border:1.5px solid var(--border); cursor:zoom-in; transition:transform .15s, box-shadow .15s; }
+        .item-foto-thumb:hover { transform:scale(1.06); box-shadow:0 4px 14px rgba(0,0,0,.18); }
+        .item-foto-label { font-size:11px; color:var(--text-muted); font-weight:600; }
+
+        /* ── Btn Perfil ────────────────────────────────────────── */
+        .btn-perfil { display:flex; align-items:center; gap:8px; padding:7px 14px; background:var(--surface-2); border:1.5px solid var(--border-strong); border-radius:var(--r-full); font-size:12.5px; font-weight:600; color:var(--text-2); cursor:pointer; transition:all .15s; font-family:'Sora',sans-serif; }
+        .btn-perfil:hover { border-color:var(--blue); color:var(--blue); background:var(--blue-bg); transform:translateY(-1px); box-shadow:var(--shadow-xs); }
+        .btn-perfil__avatar { width:26px; height:26px; border-radius:50%; background:var(--blue); display:flex; align-items:center; justify-content:center; color:#fff; font-size:11px; font-weight:700; flex-shrink:0; letter-spacing:-.3px; }
+
+        /* ── Perfil modal ──────────────────────────────────────── */
+        .perfil-tabs { display:flex; border-bottom:1.5px solid var(--border); background:var(--surface-2); padding:0 24px; gap:2px; flex-shrink:0; }
+        .perfil-tab { padding:12px 14px; font-size:12.5px; font-weight:600; color:var(--text-muted); cursor:pointer; border:none; background:none; border-bottom:2px solid transparent; margin-bottom:-1.5px; font-family:'Sora',sans-serif; transition:color .14s, border-color .14s; white-space:nowrap; }
+        .perfil-tab:hover { color:var(--text-2); }
+        .perfil-tab.active { color:var(--blue); border-bottom-color:var(--blue); }
+        .perfil-panel { display:none; }
+        .perfil-panel.active { display:block; }
+        .perfil-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+        .perfil-grid .span-2 { grid-column:span 2; }
+        .perfil-section-title { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.1em; color:var(--text-faint); margin:4px 0 12px; padding-bottom:8px; border-bottom:1px solid var(--border); }
+        .perfil-doc-badge { display:inline-flex; align-items:center; gap:6px; padding:6px 12px; background:var(--surface-3); border:1.5px solid var(--border); border-radius:var(--r-sm); font-family:'Fira Code',monospace; font-size:13px; color:var(--text-muted); font-weight:500; }
+        .perfil-doc-badge strong { color:var(--text); font-weight:700; }
+        .perfil-nome-badge { font-size:15px; font-weight:700; color:var(--text); margin-bottom:4px; }
+        .perfil-tipo-badge { display:inline-flex; align-items:center; padding:2px 9px; border-radius:var(--r-full); font-size:11px; font-weight:600; background:var(--blue-bg); color:var(--blue-dark); border:1px solid var(--blue-border); }
+        .success-banner { display:none; align-items:center; gap:8px; padding:10px 14px; background:var(--green-bg); border:1.5px solid var(--green-border); border-radius:var(--r-sm); color:var(--green); font-size:13px; font-weight:600; margin-bottom:16px; }
+        .success-banner.visible { display:flex; }
+        .field-err-inline { font-size:12px; color:var(--red-dot); margin-top:3px; }
+        @media (max-width:640px) { .perfil-grid { grid-template-columns:1fr; } .perfil-grid .span-2 { grid-column:span 1; } }
+
+        /* ── Lock badge (devolução não editável) ───────────────── */
+        .lock-badge {
+            display: inline-flex; align-items: center; gap: 4px;
+            padding: 2px 7px; border-radius: var(--r-full);
+            font-size: 10.5px; font-weight: 600;
+            background: var(--surface-3); color: var(--text-muted);
+            border: 1px solid var(--border);
+        }
+
+        /* ── Modal action buttons ──────────────────────────────── */
+        .modal-dev-actions {
+            display: flex; gap: 8px; flex-wrap: wrap;
+            padding: 12px 24px; background: var(--surface-2);
+            border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+        .modal-dev-actions__label {
+            font-size: 10.5px; font-weight: 700; text-transform: uppercase;
+            letter-spacing: .08em; color: var(--text-faint); margin-bottom: 8px; width: 100%;
+        }
+        .btn-del-dev {
+            padding: 7px 14px; border-radius: var(--r-sm); font-size: 12px;
+            font-weight: 600; border: none; cursor: pointer;
+            font-family: 'Sora', sans-serif; transition: opacity .15s;
+            background: #fee2e2; color: #b91c1c;
+        }
+        .btn-del-dev:hover { opacity: .8; }
+        .btn-del-dev:disabled { opacity: .4; cursor: not-allowed; }
+        .locked-notice {
+            font-size: 12px; color: var(--text-muted);
+            display: flex; align-items: center; gap: 6px;
+        }
+
+        /* ── Permission warning banner ─────────────────────────── */
+        .perm-banner {
+            padding: 12px 16px; border-radius: var(--r-sm);
+            font-size: 13px; font-weight: 500;
+            display: flex; align-items: center; gap: 10px;
+            margin-bottom: 16px;
+        }
+        .perm-banner--info { background: var(--blue-bg); border: 1.5px solid var(--blue-border); color: var(--blue-dark); }
+        .perm-banner--warn { background: #fffbeb; border: 1.5px solid #fde68a; color: #92400e; }
+    </style>
+</head>
+<body>
+<div class="page-wrapper page-wrapper--wide">
+
+    <!-- ── Header ─────────────────────────────────────────────── -->
+    <div class="page-header">
+        <div class="page-header__text">
+            <h1>Minhas Devoluções</h1>
+            <p>Acompanhe o histórico de devoluções realizadas</p>
+        </div>
+        <div class="page-header__actions">
+            <button class="btn-perfil" id="btn-abrir-perfil" type="button">
+                <div class="btn-perfil__avatar" id="avatar-iniciais">{{ iniciais_usuario }}</div>
+                <span id="perfil-nome-header">{{ primeiro_nome }}</span>
+            </button>
+            <a href="{% url 'logout' %}" class="btn btn-ghost">Sair</a>
+
+            {# ── Botão "Nova Devolução" — só aparece se cliente tem permissão de criar ── #}
+            {% if cliente_permissoes.pode_criar %}
+            <a href="{% url 'tela_devolucao' %}" class="btn btn-primary">
+                <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6.5 1v11M1 6.5h11"/></svg>
+                Nova Devolução
+            </a>
+            {% else %}
+            <button class="btn btn-primary" disabled title="Você não tem permissão para criar devoluções">
+                <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6.5 1v11M1 6.5h11"/></svg>
+                Nova Devolução
+            </button>
+            {% endif %}
+        </div>
+    </div>
+
+    {# ── Banner informativo sobre permissões restritas ── #}
+    {% if not cliente_permissoes.pode_criar and not cliente_permissoes.pode_editar and not cliente_permissoes.pode_deletar %}
+    <div class="perm-banner perm-banner--info">
+        🔒 Sua conta está configurada apenas para <strong>visualização</strong>. Para solicitar devoluções, entre em contato com o suporte.
+    </div>
+    {% endif %}
+
+    <!-- ── Card com tabela ────────────────────────────────────── -->
+    <div class="card">
+        <div class="tabs">
+            <button class="tab active" data-status="todos">Todas <span class="tab-count">{{ contagens.todos }}</span></button>
+            <button class="tab" data-status="pendente">Pendente <span class="tab-count {% if not contagens.pendente %}zero{% endif %}">{{ contagens.pendente }}</span></button>
+            <button class="tab" data-status="em_processo">Em Processo <span class="tab-count {% if not contagens.em_processo %}zero{% endif %}">{{ contagens.em_processo }}</span></button>
+            <button class="tab" data-status="concluido">Concluído <span class="tab-count {% if not contagens.concluido %}zero{% endif %}">{{ contagens.concluido }}</span></button>
+            <button class="tab" data-status="recusada">Recusada <span class="tab-count {% if not contagens.recusada %}zero{% endif %}">{{ contagens.recusada }}</span></button>
+        </div>
+
+        <div class="toolbar">
+            <div class="search-wrap">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="6" cy="6" r="5"/><path d="m10.5 10.5 2.5 2.5" stroke-linecap="round"/></svg>
+                <input type="text" class="search-input" id="search-input"
+                       placeholder="Buscar por nº, nota, cliente ou documento…">
+            </div>
+            <div class="toolbar-right">
+                <button class="density-btn" id="density-btn">
+                    <svg width="13" height="10" viewBox="0 0 13 10" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M0 1h13M0 5h13M0 9h13"/></svg>
+                    <span>Compacto</span>
+                </button>
+            </div>
+        </div>
+
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Nº</th>
+                        <th>Nota Fiscal</th>
+                        <th>Cliente</th>
+                        <th class="th-sort">Data <span id="sort-icon">↕</span></th>
+                        <th style="text-align:center">Itens</th>
+                        <th>Status</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody id="tbody">
+                    {% for dev in devolucoes %}
+                    <tr class="dev-row"
+                        data-id="{{ dev.pk }}"
+                        data-status="{{ dev.status }}"
+                        data-nota="{{ dev.nota_fiscal.numero_nota|lower }}"
+                        data-cliente="{{ dev.cliente.nome_exibicao|lower|default:'' }}"
+                        data-documento="{{ dev.cliente.documento|default:'' }}"
+                        data-date="{{ dev.data_criacao|date:'Y-m-d' }}"
+                        onclick="abrirModal({{ dev.pk }})">
+
+                        <td class="td-id">#{{ dev.pk }}</td>
+                        <td class="td-nota">{{ dev.nota_fiscal.numero_nota }}</td>
+                        <td>
+                            <div class="td-client">{{ dev.cliente.nome_exibicao|default:"—" }}</div>
+                            <div class="td-client-cnpj">{{ dev.cliente.documento|default:"" }}</div>
+                        </td>
+                        <td class="td-date">{{ dev.data_criacao|date:"d/m/Y" }}</td>
+                        <td class="td-itens">{{ dev.itens.all|length }}</td>
+                        <td>
+                            <span class="status-badge status-{{ dev.status }}">
+                                {{ dev.get_status_display }}
+                            </span>
+                            {# Mostra cadeado se devolução não pode mais ser editada pelo cliente #}
+                            {% if dev.status != 'pendente' %}
+                            <span class="lock-badge" title="Somente administradores podem editar">🔒</span>
+                            {% endif %}
+                        </td>
+                        <td style="text-align:right">
+                            <button class="btn-ver" onclick="event.stopPropagation();abrirModal({{ dev.pk }})">
+                                Ver itens
+                            </button>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr id="no-rows-db">
+                        <td colspan="7">
+                            <div class="empty-state">
+                                <div class="empty-state-icon">📋</div>
+                                <h3>Nenhuma devolução registrada</h3>
+                                <p>
+                                    {% if cliente_permissoes.pode_criar %}
+                                        Suas devoluções aparecerão aqui. Clique em <strong>Nova Devolução</strong> para começar.
+                                    {% else %}
+                                        Nenhuma devolução encontrada para sua conta.
+                                    {% endif %}
+                                </p>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    <tr id="no-rows-filter" style="display:none">
+                        <td colspan="7">
+                            <div class="empty-state">
+                                <div class="empty-state-icon">🔍</div>
+                                <h3>Nenhum resultado</h3>
+                                <p>Tente outro termo ou remova os filtros.</p>
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="pagination">
+            <span class="page-info" id="page-info"></span>
+            <div class="per-page-wrap">
+                <span>Linhas:</span>
+                <select class="per-page-select" id="per-page">
+                    <option value="10">10</option>
+                    <option value="20">20</option>
+                    <option value="50">50</option>
+                </select>
+            </div>
+            <div class="page-nav">
+                <button class="page-btn" id="btn-prev">&#8249;</button>
+                <button class="page-btn" id="btn-next">&#8250;</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<!-- Modal detalhes da devolução                               -->
+<!-- ══════════════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="modal-overlay">
+    <div class="modal modal--large" role="dialog" aria-modal="true"
+         style="display:flex;flex-direction:column;max-height:90vh">
+
+        <div class="modal-header" style="flex-shrink:0">
+            <div>
+                <h3 id="modal-title">Devolução #—</h3>
+                <p id="modal-subtitle" style="color:var(--text-muted);font-size:13px;margin-top:2px"></p>
+            </div>
+            <button class="modal-close" id="btn-fechar-modal" aria-label="Fechar">
+                <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+                    <path d="M1 1l9 9M10 1L1 10"/>
+                </svg>
+            </button>
+        </div>
+
+        <div class="modal-meta" id="modal-meta" style="flex-shrink:0"></div>
+
+        <!-- Ações do cliente — visíveis apenas quando permitido + status pendente -->
+        <div id="modal-dev-actions" class="modal-dev-actions" style="display:none;flex-shrink:0">
+            <div class="modal-dev-actions__label">⚡ Ações</div>
+            <div id="modal-action-btns"></div>
+        </div>
+
+        <div class="modal-body" id="modal-body" style="overflow-y:auto;flex:1">
+            <div class="itens-title">Itens da Devolução</div>
+            <div id="modal-itens"></div>
+        </div>
+
+        <div class="modal-footer" style="flex-shrink:0">
+            <button class="btn btn-ghost btn-sm" id="btn-fechar-modal-footer">Fechar</button>
+        </div>
+    </div>
+</div>
+
+<!-- Dados em JSON -->
+<script id="devolucoes-data" type="application/json">{{ devolucoes_json|safe }}</script>
+
+<!-- Permissões do cliente (para o JS) -->
+<script id="cliente-perms" type="application/json">
+{
+    "pode_criar":      {{ cliente_permissoes.pode_criar|yesno:"true,false" }},
+    "pode_visualizar": {{ cliente_permissoes.pode_visualizar|yesno:"true,false" }},
+    "pode_editar":     {{ cliente_permissoes.pode_editar|yesno:"true,false" }},
+    "pode_deletar":    {{ cliente_permissoes.pode_deletar|yesno:"true,false" }}
+}
+</script>
+
+<div id="toast-container" aria-live="polite" aria-atomic="true"
+     style="position:fixed;bottom:24px;right:24px;z-index:9999;display:flex;flex-direction:column;gap:8px"></div>
+
+<script>
+(function () {
+  'use strict';
+
+  const CSRF = (document.cookie.match(/csrftoken=([^;]+)/) || [])[1] || '';
+  const devolucoes  = JSON.parse(document.getElementById('devolucoes-data').textContent);
+  const clientePerms = JSON.parse(document.getElementById('cliente-perms').textContent);
+
+  let activeStatus = 'todos', query = '', sortDir = -1, page = 1, perPage = 10, compact = false;
+
+  /* ── Utilitários ─────────────────────────────────────────── */
+  function toast(msg, type = 'success') {
+    const el = document.createElement('div');
+    el.style.cssText = `padding:10px 16px;border-radius:var(--r-sm);font-size:13px;font-weight:500;color:#fff;box-shadow:0 4px 14px rgba(0,0,0,.18);background:${type === 'success' ? '#16a34a' : '#dc2626'}`;
+    el.textContent = msg;
+    document.getElementById('toast-container').appendChild(el);
+    setTimeout(() => el.remove(), 3000);
+  }
+
+  function esc(s) {
+    return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function slabel(s) {
+    return { pendente:'Pendente', em_processo:'Em Processo', concluido:'Concluído', recusada:'Recusada' }[s] || s;
+  }
+
+  async function apiFetch(url, options = {}) {
+    const resp = await fetch(url, options);
+    if (resp.redirected || resp.status === 403) {
+      alert('Sua sessão expirou. A página será recarregada.');
+      window.location.reload(); return null;
+    }
+    return resp;
+  }
+
+  /* ── Filtro + paginação ──────────────────────────────────── */
+  function filtered() {
+    const q = query.toLowerCase();
+    return [...document.querySelectorAll('.dev-row')]
+      .filter(r => {
+        const byStatus = activeStatus === 'todos' || r.dataset.status === activeStatus;
+        const byQuery  = !q || [r.dataset.nota, r.dataset.cliente, r.dataset.documento, r.dataset.id]
+          .some(v => v && v.toLowerCase().includes(q));
+        return byStatus && byQuery;
+      })
+      .sort((a, b) => sortDir * (a.dataset.date < b.dataset.date ? -1 : 1));
+  }
+
+  function render() {
+    const rows = filtered(), total = rows.length;
+    const start = (page - 1) * perPage, end = Math.min(start + perPage, total);
+    document.querySelectorAll('.dev-row').forEach(r => r.style.display = 'none');
+    document.getElementById('no-rows-filter').style.display = 'none';
+
+    if (total === 0) {
+      document.getElementById('no-rows-filter').style.display = '';
+    } else {
+      rows.slice(start, end).forEach(r => {
+        r.style.display = '';
+        r.querySelectorAll('td').forEach(td => {
+          td.style.paddingTop    = compact ? '9px' : '';
+          td.style.paddingBottom = compact ? '9px' : '';
+        });
+      });
+    }
+    document.getElementById('page-info').textContent = `${total ? start + 1 : 0}–${end} de ${total}`;
+    document.getElementById('btn-prev').disabled = page <= 1;
+    document.getElementById('btn-next').disabled = end >= total;
+  }
+
+  /* Eventos de filtro */
+  document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', function () {
+    document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+    this.classList.add('active');
+    activeStatus = this.dataset.status; page = 1; render();
+  }));
+  document.getElementById('search-input').addEventListener('input', function () {
+    query = this.value.trim(); page = 1; render();
+  });
+  document.querySelector('.th-sort')?.addEventListener('click', function () {
+    sortDir *= -1;
+    document.getElementById('sort-icon').textContent = sortDir === -1 ? '↓' : '↑';
+    render();
+  });
+  document.getElementById('btn-prev').addEventListener('click', () => { page--; render(); });
+  document.getElementById('btn-next').addEventListener('click', () => { page++; render(); });
+  document.getElementById('per-page').addEventListener('change', function () {
+    perPage = +this.value; page = 1; render();
+  });
+  document.getElementById('density-btn').addEventListener('click', function () {
+    compact = !compact;
+    this.querySelector('span').textContent = compact ? 'Espaçado' : 'Compacto';
+    render();
+  });
+
+  /* ── Modal ───────────────────────────────────────────────── */
+  const overlay = document.getElementById('modal-overlay');
+
+  window.abrirModal = function (id) {
+    const dev = devolucoes.find(d => d.pk === id);
+    if (!dev) return;
+
+    document.getElementById('modal-title').textContent    = `Devolução #${dev.pk}`;
+    document.getElementById('modal-subtitle').textContent = `${dev.itens.length} item(ns) · ${dev.data_criacao}`;
+
+    /* Meta info */
+    document.getElementById('modal-meta').innerHTML = [
+      ['Nota Fiscal', `<span class="meta-value mono">${esc(dev.numero_nota)}</span>`],
+      ['Cliente',     `<span class="meta-value">${esc(dev.nome_cliente || '—')}</span>`],
+      ['Documento',   `<span class="meta-value mono">${esc(dev.documento || '—')}</span>`],
+      ['Status',      `<span class="status-badge status-${esc(dev.status)}">${slabel(dev.status)}</span>`],
+    ].map(([l, v]) =>
+      `<div class="meta-item"><span class="meta-label">${l}</span>${v}</div>`
+    ).join('');
+
+    /* Ações disponíveis para o cliente */
+    const actionsEl    = document.getElementById('modal-dev-actions');
+    const actionBtnsEl = document.getElementById('modal-action-btns');
+    actionBtnsEl.innerHTML = '';
+
+    const podeEditar  = dev.pode_editar  && clientePerms.pode_editar;
+    const podeDeletar = dev.pode_deletar && clientePerms.pode_deletar;
+
+    if (podeEditar || podeDeletar) {
+      actionsEl.style.display = '';
+      if (podeDeletar) {
+        const btnDel = document.createElement('button');
+        btnDel.className = 'btn-del-dev';
+        btnDel.innerHTML = '🗑 Cancelar Devolução';
+        btnDel.onclick = () => excluirDevolucao(dev.pk, btnDel);
+        actionBtnsEl.appendChild(btnDel);
+      }
+      /* Nota: Edição inline pode ser implementada com uma nova URL /devolucao/<id>/editar/ */
+    } else {
+      actionsEl.style.display = '';
+      actionBtnsEl.innerHTML = dev.status !== 'pendente'
+        ? `<span class="locked-notice">🔒 Devolução em análise — somente administradores podem modificar.</span>`
+        : `<span class="locked-notice">🔒 Você não tem permissão para editar esta devolução.</span>`;
+    }
+
+    /* Itens */
+    document.getElementById('modal-itens').innerHTML = dev.itens.length
+      ? dev.itens.map(item => `
+          <div class="item-card">
+            <div class="item-icon">📦</div>
+            <div class="item-info">
+              <div class="item-desc">${esc(item.descricao)}</div>
+              <div class="item-code">Cód. ${esc(item.codigo)}</div>
+              <div class="item-meta">
+                ${item.motivo_display ? `<span class="motivo-badge">${esc(item.motivo_display)}</span>` : ''}
+              </div>
+              ${item.observacao
+                ? `<div class="item-obs-block">
+                     <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M1 1h10v7H6.5L4 10.5V8H1V1z"/></svg>
+                     ${esc(item.observacao)}
+                   </div>`
+                : ''}
+              ${item.foto_url
+                ? `<div class="item-foto-wrap">
+                     <img src="${esc(item.foto_url)}" class="item-foto-thumb"
+                          alt="Foto do produto" onclick="abrirFoto('${esc(item.foto_url)}')"
+                          title="Clique para ampliar">
+                     <span class="item-foto-label">📷 Foto anexada</span>
+                   </div>`
+                : ''}
+            </div>
+            <div class="qty-pill"><strong>${item.quantidade}</strong><span>un.</span></div>
+          </div>`)
+        .join('')
+      : '<p style="color:var(--text-muted);font-size:13px;padding:4px 0">Sem itens registrados.</p>';
+
+    /* Obs geral */
+    const body = document.getElementById('modal-body');
+    body.querySelector('.obs-geral')?.remove();
+    if (dev.obs_geral) {
+      const d = document.createElement('div');
+      d.className = 'obs-geral';
+      d.innerHTML = `<strong>Observação geral:</strong> ${esc(dev.obs_geral)}`;
+      body.appendChild(d);
+    }
+
+    overlay.classList.add('open');
+    document.body.style.overflow = 'hidden';
+  };
+
+  /* Excluir devolução (cliente — apenas pendente) */
+  async function excluirDevolucao(devId, btn) {
+    if (!confirm(`Tem certeza que deseja cancelar a Devolução #${devId}? Esta ação não pode ser desfeita.`)) return;
+
+    btn.disabled = true; btn.textContent = 'Cancelando…';
+
+    const resp = await apiFetch(`/devolucao/${devId}/excluir/`, {
+      method: 'POST',
+      headers: { 'X-CSRFToken': CSRF, 'X-Requested-With': 'XMLHttpRequest' },
+    });
+    if (!resp) return;
+
+    const data = await resp.json();
+    if (data.success) {
+      toast(`✓ Devolução #${devId} cancelada.`, 'success');
+      fecharModal();
+      /* Remove a linha da tabela */
+      const row = document.querySelector(`.dev-row[data-id="${devId}"]`);
+      if (row) row.remove();
+      render();
+    } else {
+      toast(`✗ ${data.error || 'Erro ao cancelar.'}`, 'error');
+      btn.disabled = false; btn.textContent = '🗑 Cancelar Devolução';
+    }
+  }
+
+  /* Foto lightbox */
+  window.abrirFoto = function (url) {
+    const lb = document.createElement('div');
+    lb.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.82);z-index:9999;display:flex;align-items:center;justify-content:center;cursor:zoom-out';
+    lb.innerHTML = `<img src="${url}" style="max-width:92vw;max-height:90vh;border-radius:10px;box-shadow:0 24px 80px rgba(0,0,0,.6)" alt="Foto do produto">`;
+    lb.onclick = () => lb.remove();
+    document.addEventListener('keydown', function escFn(e) {
+      if (e.key === 'Escape') { lb.remove(); document.removeEventListener('keydown', escFn); }
+    });
+    document.body.appendChild(lb);
+  };
+
+  function fecharModal() {
+    overlay.classList.remove('open');
+    document.body.style.overflow = '';
+  }
+  document.getElementById('btn-fechar-modal')?.addEventListener('click', fecharModal);
+  document.getElementById('btn-fechar-modal-footer')?.addEventListener('click', fecharModal);
+  overlay.addEventListener('click', e => { if (e.target === overlay) fecharModal(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') fecharModal(); });
+
+  render();
+})();
+</script>
+
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<!-- Modal Perfil                                              -->
+<!-- ══════════════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="modal-perfil">
+    <div class="modal modal--large" role="dialog" aria-modal="true"
+         style="max-width:680px;display:flex;flex-direction:column;max-height:90vh">
+        <div class="modal-header" style="flex-shrink:0">
+            <div>
+                <h3 id="perfil-modal-title">Meu Perfil</h3>
+                <p id="perfil-modal-sub" style="color:var(--text-muted);font-size:13px;margin-top:3px"></p>
+            </div>
+            <button class="modal-close" id="btn-fechar-perfil" aria-label="Fechar">
+                <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M1 1l9 9M10 1L1 10"/></svg>
+            </button>
+        </div>
+        <div class="perfil-tabs" style="flex-shrink:0">
+            <button class="perfil-tab active" data-panel="painel-cadastro">📋 Cadastro</button>
+            <button class="perfil-tab" data-panel="painel-contato">📞 Contato</button>
+            <button class="perfil-tab" data-panel="painel-endereco">📍 Endereço</button>
+            <button class="perfil-tab" data-panel="painel-login">🔐 Login</button>
+        </div>
+        <div class="modal-body" style="overflow-y:auto;flex:1;padding:24px">
+            <div class="success-banner" id="perfil-success">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="8" cy="8" r="7"/><path d="M5 8l2.5 2.5L11 5"/></svg>
+                Alterações salvas com sucesso!
+            </div>
+            <div class="perfil-panel active" id="painel-cadastro">
+                <div class="perfil-section-title">Dados cadastrais</div>
+                <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:18px">
+                    <div style="width:52px;height:52px;border-radius:50%;background:var(--blue);display:flex;align-items:center;justify-content:center;color:#fff;font-size:20px;font-weight:700;flex-shrink:0" id="perfil-avatar-grande">{{ iniciais_usuario }}</div>
+                    <div>
+                        <div class="perfil-nome-badge" id="perfil-nome-display">—</div>
+                        <span class="perfil-tipo-badge" id="perfil-tipo-display">—</span>
+                    </div>
+                </div>
+                <div class="perfil-doc-badge">
+                    <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="1" width="9" height="11" rx="1.5"/><path d="M4.5 4.5h4M4.5 7h4M4.5 9.5h2.5"/></svg>
+                    <strong id="perfil-doc-tipo-label">Documento</strong>: <span id="perfil-doc-valor">—</span>
+                </div>
+                <p style="margin-top:14px;font-size:12.5px;color:var(--text-faint)">CPF/CNPJ e nome cadastral não podem ser alterados.<br>Para correções, entre em contato com o suporte.</p>
+            </div>
+            <div class="perfil-panel" id="painel-contato">
+                <div class="perfil-section-title">Informações de contato</div>
+                <div class="perfil-grid">
+                    <div class="field">
+                        <label>Telefone <span style="color:var(--red-dot)">*</span></label>
+                        <input type="text" id="p-telefone" placeholder="(00) 0000-0000" maxlength="20">
+                        <div class="field-err-inline" id="err-telefone"></div>
+                    </div>
+                    <div class="field">
+                        <label>Celular / WhatsApp</label>
+                        <input type="text" id="p-celular" placeholder="(00) 00000-0000" maxlength="20">
+                    </div>
+                </div>
+            </div>
+            <div class="perfil-panel" id="painel-endereco">
+                <div class="perfil-section-title">Endereço</div>
+                <div class="perfil-grid">
+                    <div class="field"><label>CEP</label><input type="text" id="p-cep" placeholder="00000-000" maxlength="9"></div>
+                    <div class="field"><label>Estado (UF)</label><input type="text" id="p-estado" placeholder="SP" maxlength="2" style="text-transform:uppercase"></div>
+                    <div class="field span-2"><label>Logradouro</label><input type="text" id="p-logradouro" placeholder="Rua, Av., Travessa…" maxlength="100"></div>
+                    <div class="field"><label>Número</label><input type="text" id="p-numero" placeholder="123" maxlength="10"></div>
+                    <div class="field"><label>Complemento</label><input type="text" id="p-complemento" placeholder="Apto, Bloco…" maxlength="50"></div>
+                    <div class="field"><label>Bairro</label><input type="text" id="p-bairro" placeholder="Centro" maxlength="50"></div>
+                    <div class="field"><label>Cidade</label><input type="text" id="p-cidade" placeholder="São Paulo" maxlength="50"></div>
+                </div>
+            </div>
+            <div class="perfil-panel" id="painel-login">
+                <div class="perfil-section-title">E-mail de acesso</div>
+                <div class="field" style="margin-bottom:20px">
+                    <label>E-mail <span style="color:var(--red-dot)">*</span></label>
+                    <input type="email" id="p-email" placeholder="seu@email.com">
+                    <div class="field-err-inline" id="err-email"></div>
+                </div>
+                <div class="perfil-section-title" style="margin-top:4px">Alterar senha <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:11px">(deixe em branco para não alterar)</span></div>
+                <div class="perfil-grid">
+                    <div class="field">
+                        <label>Nova senha</label>
+                        <input type="password" id="p-nova-senha" placeholder="Mínimo 8 caracteres" autocomplete="new-password">
+                        <div class="field-err-inline" id="err-nova-senha"></div>
+                    </div>
+                    <div class="field">
+                        <label>Confirmar nova senha</label>
+                        <input type="password" id="p-confirmar-senha" placeholder="Repita a senha" autocomplete="new-password">
+                        <div class="field-err-inline" id="err-confirmar-senha"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer" style="flex-shrink:0">
+            <button class="btn btn-ghost btn-sm" id="btn-cancelar-perfil">Cancelar</button>
+            <button class="btn btn-primary" id="btn-salvar-perfil">
+                Salvar alterações
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 6l3 3 5-5"/></svg>
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    const overlay     = document.getElementById('modal-perfil');
+    const btnAbrir    = document.getElementById('btn-abrir-perfil');
+    const btnFechar   = document.getElementById('btn-fechar-perfil');
+    const btnCancelar = document.getElementById('btn-cancelar-perfil');
+    const btnSalvar   = document.getElementById('btn-salvar-perfil');
+    const successBanner = document.getElementById('perfil-success');
+
+    async function apiFetch(url, options = {}) {
+        const resp = await fetch(url, options);
+        if (resp.redirected || resp.status === 403) {
+            alert('Sua sessão expirou. A página será recarregada.');
+            window.location.reload(); return null;
+        }
+        return resp;
+    }
+
+    document.querySelectorAll('.perfil-tab').forEach(tab => {
+        tab.addEventListener('click', function () {
+            document.querySelectorAll('.perfil-tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.perfil-panel').forEach(p => p.classList.remove('active'));
+            this.classList.add('active');
+            document.getElementById(this.dataset.panel).classList.add('active');
+        });
+    });
+
+    function abrirModal() {
+        successBanner.classList.remove('visible'); limparErros(); carregarDados();
+        overlay.classList.add('open'); document.body.style.overflow = 'hidden';
+    }
+    function fecharModal() { overlay.classList.remove('open'); document.body.style.overflow = ''; }
+
+    btnAbrir?.addEventListener('click', abrirModal);
+    btnFechar?.addEventListener('click', fecharModal);
+    btnCancelar?.addEventListener('click', fecharModal);
+    overlay.addEventListener('click', e => { if (e.target === overlay) fecharModal(); });
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape' && overlay.classList.contains('open')) fecharModal();
+    });
+
+    function carregarDados() {
+        apiFetch('/ajax/perfil/')
+            .then(r => r?.json())
+            .then(d => {
+                if (!d) return;
+                const iniciais = (d.nome || d.razao_social || d.email || '?')
+                    .trim().split(' ').slice(0, 2).map(w => w[0].toUpperCase()).join('');
+                document.getElementById('avatar-iniciais').textContent      = iniciais;
+                document.getElementById('perfil-avatar-grande').textContent = iniciais;
+                document.getElementById('perfil-nome-header').textContent   = (d.nome || d.razao_social || d.email).split(' ')[0];
+                document.getElementById('perfil-nome-display').textContent  = d.nome || d.razao_social || '—';
+                document.getElementById('perfil-tipo-display').textContent  = d.tipo === 'PF' ? '👤 Pessoa Física' : '🏢 Pessoa Jurídica';
+                document.getElementById('perfil-doc-tipo-label').textContent = d.tipo === 'PF' ? 'CPF' : 'CNPJ';
+                document.getElementById('perfil-doc-valor').textContent     = d.documento || '—';
+                document.getElementById('perfil-modal-sub').textContent     = d.email;
+                document.getElementById('p-telefone').value   = d.telefone   || '';
+                document.getElementById('p-celular').value    = d.celular    || '';
+                document.getElementById('p-cep').value        = d.cep        || '';
+                document.getElementById('p-logradouro').value = d.logradouro || '';
+                document.getElementById('p-numero').value     = d.numero     || '';
+                document.getElementById('p-complemento').value = d.complemento || '';
+                document.getElementById('p-bairro').value     = d.bairro     || '';
+                document.getElementById('p-cidade').value     = d.cidade     || '';
+                document.getElementById('p-estado').value     = (d.estado || '').toUpperCase();
+                document.getElementById('p-email').value      = d.email      || '';
+                document.getElementById('p-nova-senha').value = '';
+                document.getElementById('p-confirmar-senha').value = '';
+            });
+    }
+
+    function limparErros() { document.querySelectorAll('.field-err-inline').forEach(el => el.textContent = ''); }
+    function setErro(id, msg) { const el = document.getElementById(id); if (el) el.textContent = msg; }
+    function validar() {
+        limparErros(); let ok = true;
+        const email = document.getElementById('p-email').value.trim();
+        if (!email) { setErro('err-email', 'E-mail é obrigatório.'); ok = false; }
+        else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { setErro('err-email', 'E-mail inválido.'); ok = false; }
+        if (!document.getElementById('p-telefone').value.trim()) { setErro('err-telefone', 'Telefone é obrigatório.'); ok = false; }
+        const novaSenha = document.getElementById('p-nova-senha').value;
+        const confirmar = document.getElementById('p-confirmar-senha').value;
+        if (novaSenha) {
+            if (novaSenha.length < 8) { setErro('err-nova-senha', 'Mínimo 8 caracteres.'); ok = false; }
+            else if (novaSenha !== confirmar) { setErro('err-confirmar-senha', 'As senhas não coincidem.'); ok = false; }
+        }
+        return ok;
+    }
+
+    btnSalvar?.addEventListener('click', () => {
+        if (!validar()) {
+            const map = { 'err-email':'painel-login', 'err-nova-senha':'painel-login', 'err-confirmar-senha':'painel-login', 'err-telefone':'painel-contato' };
+            for (const [errId, painelId] of Object.entries(map)) {
+                if (document.getElementById(errId)?.textContent) {
+                    document.querySelectorAll('.perfil-tab').forEach(t => t.classList.remove('active'));
+                    document.querySelectorAll('.perfil-panel').forEach(p => p.classList.remove('active'));
+                    document.querySelector(`[data-panel="${painelId}"]`).classList.add('active');
+                    document.getElementById(painelId).classList.add('active');
+                    break;
+                }
+            }
+            return;
+        }
+        const payload = {
+            email:           document.getElementById('p-email').value.trim(),
+            nova_senha:      document.getElementById('p-nova-senha').value,
+            confirmar_senha: document.getElementById('p-confirmar-senha').value,
+            telefone:        document.getElementById('p-telefone').value.trim(),
+            celular:         document.getElementById('p-celular').value.trim(),
+            cep:             document.getElementById('p-cep').value.trim(),
+            logradouro:      document.getElementById('p-logradouro').value.trim(),
+            numero:          document.getElementById('p-numero').value.trim(),
+            complemento:     document.getElementById('p-complemento').value.trim(),
+            bairro:          document.getElementById('p-bairro').value.trim(),
+            cidade:          document.getElementById('p-cidade').value.trim(),
+            estado:          document.getElementById('p-estado').value.trim().toUpperCase(),
+        };
+        btnSalvar.disabled = true; btnSalvar.textContent = 'Salvando…';
+        const csrfToken = document.cookie.match(/csrftoken=([^;]+)/)?.[1] || '';
+        apiFetch('/ajax/perfil/salvar/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+            body: JSON.stringify(payload),
+        })
+        .then(r => r?.json())
+        .then(data => {
+            if (!data) return;
+            if (data.ok) {
+                successBanner.classList.add('visible');
+                document.getElementById('perfil-modal-sub').textContent = data.email;
+                document.getElementById('perfil-nome-header').textContent = data.email.split('@')[0];
+                document.getElementById('p-nova-senha').value = '';
+                document.getElementById('p-confirmar-senha').value = '';
+                setTimeout(() => successBanner.classList.remove('visible'), 4000);
+            } else if (data.erros) {
+                const mapa = { email:'err-email', nova_senha:'err-nova-senha', confirmar_senha:'err-confirmar-senha', telefone:'err-telefone' };
+                for (const [campo, errId] of Object.entries(mapa)) {
+                    if (data.erros[campo]) setErro(errId, data.erros[campo]);
+                }
+            } else { alert(data.erro || 'Erro ao salvar.'); }
+        })
+        .catch(() => alert('Erro de conexão. Tente novamente.'))
+        .finally(() => {
+            btnSalvar.disabled = false;
+            btnSalvar.innerHTML = 'Salvar alterações <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 6l3 3 5-5"/></svg>';
+        });
+    });
+
+    document.getElementById('p-cep')?.addEventListener('input', function () {
+        let v = this.value.replace(/\D/g, '').slice(0, 8);
+        if (v.length > 5) v = v.replace(/(\d{5})(\d)/, '$1-$2');
+        this.value = v;
+    });
+    ['p-telefone', 'p-celular'].forEach(id => {
+        document.getElementById(id)?.addEventListener('input', function () {
+            let v = this.value.replace(/\D/g, '').slice(0, 11);
+            if (v.length === 11) v = v.replace(/(\d{2})(\d{5})(\d{4})/, '($1) $2-$3');
+            else if (v.length >= 10) v = v.replace(/(\d{2})(\d{4})(\d{4})/, '($1) $2-$3');
+            this.value = v;
+        });
+    });
+    document.getElementById('p-estado')?.addEventListener('input', function () {
+        this.value = this.value.toUpperCase().slice(0, 2);
+    });
+})();
+</script>
+</body>
+</html>

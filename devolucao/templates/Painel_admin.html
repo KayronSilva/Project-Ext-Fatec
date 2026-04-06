@@ -1,0 +1,686 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel Administrativo — Devoluções</title>
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    <style>
+        /* ── Stats cards ─────────────────────────────────── */
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 14px;
+            margin-bottom: 24px;
+        }
+        .stat-card {
+            background: var(--surface-2);
+            border: 1.5px solid var(--border);
+            border-radius: var(--r-sm);
+            padding: 16px 18px;
+        }
+        .stat-card__label {
+            font-size: 10.5px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .08em;
+            color: var(--text-faint);
+            margin-bottom: 8px;
+        }
+        .stat-card__value {
+            font-size: 30px;
+            font-weight: 700;
+            color: var(--text);
+            line-height: 1;
+        }
+        .stat-card__sub {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-top: 5px;
+        }
+        .stat-card--pendente    .stat-card__value { color: #e07b00; }
+        .stat-card--em_processo .stat-card__value { color: var(--blue); }
+        .stat-card--concluido   .stat-card__value { color: #1a7a4a; }
+        .stat-card--recusada    .stat-card__value { color: #c0392b; }
+
+        /* ── Status select inline ────────────────────────── */
+        .status-select {
+            font-size: 11px;
+            font-weight: 600;
+            font-family: 'Sora', sans-serif;
+            border: 1.5px solid var(--border);
+            border-radius: 12px;
+            padding: 4px 8px;
+            background: var(--surface-2);
+            cursor: pointer;
+            outline: none;
+            color: var(--text-2);
+            transition: border-color .15s, opacity .15s;
+            max-width: 130px;
+        }
+        .status-select:hover  { border-color: var(--blue); }
+        .status-select:focus  { border-color: var(--blue); box-shadow: 0 0 0 2px var(--blue-bg); }
+        .status-select:disabled { opacity: .5; cursor: wait; }
+        .status-select[data-status="pendente"]    { border-color: #e07b00;     color: #e07b00;     background: #fff8f0; }
+        .status-select[data-status="em_processo"] { border-color: var(--blue); color: var(--blue); background: var(--blue-bg); }
+        .status-select[data-status="concluido"]   { border-color: #1a7a4a;     color: #1a7a4a;     background: #f0fff5; }
+        .status-select[data-status="recusada"]    { border-color: #c0392b;     color: #c0392b;     background: #fff5f5; }
+
+        /* ── Toast ───────────────────────────────────────── */
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            z-index: 9999;
+            padding: 12px 20px;
+            border-radius: var(--r-sm);
+            font-size: 13px;
+            font-weight: 600;
+            box-shadow: 0 8px 32px rgba(0,0,0,.18);
+            transform: translateY(60px);
+            opacity: 0;
+            transition: all .25s ease;
+            pointer-events: none;
+            background: var(--text);
+            color: #fff;
+        }
+        .toast.visible          { transform: translateY(0); opacity: 1; }
+        .toast.toast--success   { background: #1a7a4a; }
+        .toast.toast--error     { background: #c0392b; }
+
+        /* ── Admin badge ─────────────────────────────────── */
+        .admin-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 3px 10px;
+            background: var(--blue-bg);
+            color: var(--blue-dark);
+            border: 1px solid var(--blue-border);
+            border-radius: var(--r-full);
+            font-size: 10.5px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .06em;
+        }
+
+        /* ── Modal status actions ────────────────────────── */
+        .modal-status-section {
+            padding: 14px 24px;
+            background: var(--surface-2);
+            border-top: 1px solid var(--border);
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+        .modal-status-section__label {
+            font-size: 10.5px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .08em;
+            color: var(--text-faint);
+            margin-bottom: 10px;
+        }
+        .modal-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+        .btn-status {
+            padding: 7px 14px;
+            border-radius: var(--r-sm);
+            font-size: 12px;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+            font-family: 'Sora', sans-serif;
+            transition: opacity .15s, transform .15s;
+        }
+        .btn-status:hover    { opacity: .86; transform: translateY(-1px); }
+        .btn-status:disabled { opacity: .4; cursor: not-allowed; transform: none; }
+
+        .btn-status--processar { background: #1a6aff; color: #fff; }
+        .btn-status--concluir  { background: #1a7a4a; color: #fff; }
+        .btn-status--recusar   { background: #c0392b; color: #fff; }
+        .btn-status--reabrir   { background: var(--surface-3); color: var(--text-2); border: 1.5px solid var(--border); }
+
+        /* ── Foto thumb (reuso do acompanhar_devolucoes) ─── */
+        .item-foto-wrap  { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+        .item-foto-thumb { width: 52px; height: 52px; object-fit: cover; border-radius: 6px; border: 1.5px solid var(--border); cursor: zoom-in; transition: transform .15s, box-shadow .15s; }
+        .item-foto-thumb:hover { transform: scale(1.06); box-shadow: 0 4px 14px rgba(0,0,0,.18); }
+        .item-foto-label { font-size: 11px; color: var(--text-muted); font-weight: 600; }
+
+        @media (max-width: 900px) {
+            .stats-row { grid-template-columns: repeat(3, 1fr); }
+        }
+        @media (max-width: 600px) {
+            .stats-row { grid-template-columns: 1fr 1fr; }
+        }
+    </style>
+</head>
+<body>
+<div class="page-wrapper page-wrapper--wide">
+
+    <!-- ── Header ────────────────────────────────────────── -->
+    <div class="page-header">
+        <div class="page-header__text">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
+                <h1>Painel Administrativo</h1>
+                <span class="admin-badge">⚙ Admin</span>
+            </div>
+            <p>Gerencie e acompanhe todas as devoluções do sistema</p>
+        </div>
+        <div class="page-header__actions">
+              <a href="{% url 'acompanhar_devolucoes' %}" class="btn btn-ghost">Minha área</a>
+              <a href="{% url 'importar_notas' %}" class="btn btn-ghost">📥 Importar Notas</a>
+              {% if pode_gerenciar_admins %}
+              <a href="{% url 'gestao_usuarios' %}" class="btn btn-ghost">⚙ Gestão de Usuários</a>
+              {% endif %}
+              <a href="/admin/" class="btn btn-ghost" target="_blank">Django Admin</a>
+              <a href="{% url 'logout' %}" class="btn btn-ghost">Sair</a>
+        </div>
+    </div>
+
+    <!-- ── Stats cards ───────────────────────────────────── -->
+    <div class="stats-row">
+        <div class="stat-card">
+            <div class="stat-card__label">Total</div>
+            <div class="stat-card__value">{{ contagens.todos }}</div>
+            <div class="stat-card__sub">devoluções registradas</div>
+        </div>
+        <div class="stat-card stat-card--pendente">
+            <div class="stat-card__label">Pendente</div>
+            <div class="stat-card__value">{{ contagens.pendente }}</div>
+            <div class="stat-card__sub">aguardando análise</div>
+        </div>
+        <div class="stat-card stat-card--em_processo">
+            <div class="stat-card__label">Em Processo</div>
+            <div class="stat-card__value">{{ contagens.em_processo }}</div>
+            <div class="stat-card__sub">em análise</div>
+        </div>
+        <div class="stat-card stat-card--concluido">
+            <div class="stat-card__label">Concluído</div>
+            <div class="stat-card__value">{{ contagens.concluido }}</div>
+            <div class="stat-card__sub">finalizadas com sucesso</div>
+        </div>
+        <div class="stat-card stat-card--recusada">
+            <div class="stat-card__label">Recusada</div>
+            <div class="stat-card__value">{{ contagens.recusada }}</div>
+            <div class="stat-card__sub">não aceitas</div>
+        </div>
+    </div>
+
+    <!-- ── Main card ─────────────────────────────────────── -->
+    <div class="card">
+        <div class="tabs">
+            <button class="tab active" data-status="todos">
+                Todas <span class="tab-count">{{ contagens.todos }}</span>
+            </button>
+            <button class="tab" data-status="pendente">
+                Pendente <span class="tab-count {% if not contagens.pendente %}zero{% endif %}">{{ contagens.pendente }}</span>
+            </button>
+            <button class="tab" data-status="em_processo">
+                Em Processo <span class="tab-count {% if not contagens.em_processo %}zero{% endif %}">{{ contagens.em_processo }}</span>
+            </button>
+            <button class="tab" data-status="concluido">
+                Concluído <span class="tab-count {% if not contagens.concluido %}zero{% endif %}">{{ contagens.concluido }}</span>
+            </button>
+            <button class="tab" data-status="recusada">
+                Recusada <span class="tab-count {% if not contagens.recusada %}zero{% endif %}">{{ contagens.recusada }}</span>
+            </button>
+        </div>
+
+        <div class="toolbar">
+            <div class="search-wrap">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="6" cy="6" r="5"/><path d="m10.5 10.5 2.5 2.5" stroke-linecap="round"/></svg>
+                <input type="text" class="search-input" id="search-input"
+                       placeholder="Buscar por nº, nota fiscal, cliente ou documento…">
+            </div>
+        </div>
+
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Nº</th>
+                        <th>Nota Fiscal</th>
+                        <th>Cliente</th>
+                        <th class="th-sort">Data <span id="sort-icon">↕</span></th>
+                        <th style="text-align:center">Itens</th>
+                        <th>Status</th>
+                        <th>Alterar Status</th>
+                    </tr>
+                </thead>
+                <tbody id="tbody">
+                    {% for dev in devolucoes %}
+                    <tr class="dev-row"
+                        data-id="{{ dev.pk }}"
+                        data-status="{{ dev.status }}"
+                        data-nota="{{ dev.nota_fiscal.numero_nota|lower }}"
+                        data-cliente="{{ dev.cliente.nome_exibicao|lower|default:'' }}"
+                        data-documento="{{ dev.cliente.documento|default:'' }}"
+                        data-date="{{ dev.data_criacao|date:'Y-m-d' }}"
+                        onclick="abrirModal({{ dev.pk }})">
+
+                        <td class="td-id">#{{ dev.pk }}</td>
+                        <td class="td-nota">{{ dev.nota_fiscal.numero_nota }}</td>
+                        <td>
+                            <div class="td-client">{{ dev.cliente.nome_exibicao|default:"—" }}</div>
+                            <div class="td-client-cnpj">{{ dev.cliente.documento|default:"" }}</div>
+                        </td>
+                        <td class="td-date">{{ dev.data_criacao|date:"d/m/Y" }}</td>
+                        <td class="td-itens" style="text-align:center">{{ dev.itens.all|length }}</td>
+                        <td>
+                            <span class="status-badge status-{{ dev.status }}">
+                                {{ dev.get_status_display }}
+                            </span>
+                        </td>
+                        <!-- Bloqueia click da row para não abrir modal ao usar o select -->
+                        <td onclick="event.stopPropagation()">
+                            <select class="status-select"
+                                    data-id="{{ dev.pk }}"
+                                    data-status="{{ dev.status }}"
+                                    onchange="mudarStatus(this)">
+                                <option value="pendente"    {% if dev.status == 'pendente'    %}selected{% endif %}>Pendente</option>
+                                <option value="em_processo" {% if dev.status == 'em_processo' %}selected{% endif %}>Em Processo</option>
+                                <option value="concluido"   {% if dev.status == 'concluido'   %}selected{% endif %}>Concluído</option>
+                                <option value="recusada"    {% if dev.status == 'recusada'    %}selected{% endif %}>Recusada</option>
+                            </select>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr id="no-rows-db">
+                        <td colspan="7">
+                            <div class="empty-state">
+                                <div class="empty-state-icon">📋</div>
+                                <h3>Nenhuma devolução registrada</h3>
+                                <p>As devoluções dos clientes aparecerão aqui assim que forem criadas.</p>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    <tr id="no-rows-filter" style="display:none">
+                        <td colspan="7">
+                            <div class="empty-state">
+                                <div class="empty-state-icon">🔍</div>
+                                <h3>Nenhum resultado</h3>
+                                <p>Tente outro termo ou remova os filtros.</p>
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="pagination">
+            <span class="page-info" id="page-info"></span>
+            <div class="per-page-wrap">
+                <span>Linhas:</span>
+                <select class="per-page-select" id="per-page">
+                    <option value="10">10</option>
+                    <option value="20">20</option>
+                    <option value="50">50</option>
+                </select>
+            </div>
+            <div class="page-nav">
+                <button class="page-btn" id="btn-prev">&#8249;</button>
+                <button class="page-btn" id="btn-next">&#8250;</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ── Toast ──────────────────────────────────────────────── -->
+<div class="toast" id="toast"></div>
+
+<!-- ── Modal detalhes + ações ────────────────────────────── -->
+<div class="modal-overlay" id="modal-overlay">
+    <div class="modal modal--large" role="dialog" aria-modal="true"
+         style="display:flex;flex-direction:column;max-height:90vh">
+
+        <div class="modal-header" style="flex-shrink:0">
+            <div>
+                <h3 id="modal-title">Devolução #—</h3>
+                <p id="modal-subtitle" style="color:var(--text-muted);font-size:13px;margin-top:2px"></p>
+            </div>
+            <button class="modal-close" id="btn-fechar-modal" aria-label="Fechar">
+                <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+                    <path d="M1 1l9 9M10 1L1 10"/>
+                </svg>
+            </button>
+        </div>
+
+        <div class="modal-meta" id="modal-meta" style="flex-shrink:0"></div>
+
+        <!-- Seção de ações de status (exclusiva do painel admin) -->
+        <div class="modal-status-section" id="modal-status-section" style="flex-shrink:0">
+            <div class="modal-status-section__label">⚡ Alterar status</div>
+            <div class="modal-actions" id="modal-actions"></div>
+        </div>
+
+        <div class="modal-body" id="modal-body" style="overflow-y:auto;flex:1">
+            <div class="itens-title">Itens da Devolução</div>
+            <div id="modal-itens"></div>
+        </div>
+
+        <div class="modal-footer" style="flex-shrink:0">
+            <button class="btn btn-ghost btn-sm" id="btn-fechar-modal-footer">Fechar</button>
+        </div>
+    </div>
+</div>
+
+<!-- JSON dos dados -->
+<script id="devolucoes-data" type="application/json">{{ devolucoes_json|safe }}</script>
+
+<script>
+(function () {
+  'use strict';
+
+  const CSRF = document.cookie.match(/csrftoken=([^;]+)/)?.[1] || '';
+  let devolucoes = JSON.parse(document.getElementById('devolucoes-data').textContent);
+  let activeStatus = 'todos', query = '', sortDir = -1, page = 1, perPage = 10;
+
+  // ── Toast ──────────────────────────────────────────────
+  const toastEl = document.getElementById('toast');
+  let toastTimer;
+
+  function showToast(msg, type = 'success') {
+    clearTimeout(toastTimer);
+    toastEl.textContent = msg;
+    toastEl.className = `toast toast--${type} visible`;
+    toastTimer = setTimeout(() => toastEl.classList.remove('visible'), 3500);
+  }
+
+  // ── Filtro + ordenação + paginação ─────────────────────
+  function filtered() {
+    const q = query.toLowerCase();
+    return [...document.querySelectorAll('.dev-row')]
+      .filter(r => {
+        const byStatus = activeStatus === 'todos' || r.dataset.status === activeStatus;
+        const byQuery  = !q || [r.dataset.nota, r.dataset.cliente, r.dataset.documento, r.dataset.id]
+          .some(v => v && v.toLowerCase().includes(q));
+        return byStatus && byQuery;
+      })
+      .sort((a, b) => sortDir * (a.dataset.date < b.dataset.date ? -1 : 1));
+  }
+
+  function render() {
+    const rows = filtered(), total = rows.length;
+    const start = (page - 1) * perPage, end = Math.min(start + perPage, total);
+    document.querySelectorAll('.dev-row').forEach(r => r.style.display = 'none');
+    document.getElementById('no-rows-filter').style.display = 'none';
+
+    if (total === 0) {
+      document.getElementById('no-rows-filter').style.display = '';
+    } else {
+      rows.slice(start, end).forEach(r => r.style.display = '');
+    }
+
+    document.getElementById('page-info').textContent =
+      `${total ? start + 1 : 0}–${end} de ${total}`;
+    document.getElementById('btn-prev').disabled = page <= 1;
+    document.getElementById('btn-next').disabled = end >= total;
+  }
+
+  // Tabs
+  document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', function () {
+    document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+    this.classList.add('active');
+    activeStatus = this.dataset.status;
+    page = 1;
+    render();
+  }));
+
+  // Busca
+  document.getElementById('search-input').addEventListener('input', function () {
+    query = this.value.trim();
+    page = 1;
+    render();
+  });
+
+  // Ordenação por data
+  document.querySelector('.th-sort')?.addEventListener('click', function () {
+    sortDir *= -1;
+    document.getElementById('sort-icon').textContent = sortDir === -1 ? '↓' : '↑';
+    render();
+  });
+
+  document.getElementById('btn-prev').addEventListener('click', () => { page--; render(); });
+  document.getElementById('btn-next').addEventListener('click', () => { page++; render(); });
+  document.getElementById('per-page').addEventListener('change', function () {
+    perPage = +this.value; page = 1; render();
+  });
+
+  // ── Atualiza badge + select na row ────────────────────
+  function atualizarRow(devId, status, statusDisplay) {
+    const row = document.querySelector(`.dev-row[data-id="${devId}"]`);
+    if (!row) return;
+    row.dataset.status = status;
+
+    const badge = row.querySelector('.status-badge');
+    if (badge) {
+      badge.className = `status-badge status-${status}`;
+      badge.textContent = statusDisplay;
+    }
+    const sel = row.querySelector('.status-select');
+    if (sel) {
+      sel.value = status;
+      sel.dataset.status = status;
+    }
+  }
+
+  // ── AJAX: mudar status via select inline ──────────────
+  window.mudarStatus = function (selectEl) {
+    const id         = selectEl.dataset.id;
+    const novoStatus = selectEl.value;
+    selectEl.disabled = true;
+
+    fetch(`/painel/devolucao/${id}/status/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+      body: JSON.stringify({ status: novoStatus }),
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (data.success) {
+        // Atualiza JSON local
+        const dev = devolucoes.find(d => d.pk === +id);
+        if (dev) { dev.status = data.status; dev.status_display = data.status_display; }
+        // Atualiza row
+        atualizarRow(id, data.status, data.status_display);
+        render();
+        showToast(`✓ Devolução #${id} → ${data.status_display}`, 'success');
+      } else {
+        showToast(`✗ ${data.error || 'Erro ao atualizar.'}`, 'error');
+        // Reverte select para o valor anterior
+        const dev = devolucoes.find(d => d.pk === +id);
+        if (dev) selectEl.value = dev.status;
+      }
+    })
+    .catch(() => showToast('✗ Erro de conexão.', 'error'))
+    .finally(() => { selectEl.disabled = false; });
+  };
+
+  // ── AJAX: mudar status via botões do modal ─────────────
+  window.mudarStatusModal = function (devId, novoStatus) {
+    const btns = document.querySelectorAll('#modal-actions .btn-status');
+    btns.forEach(b => b.disabled = true);
+
+    fetch(`/painel/devolucao/${devId}/status/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+      body: JSON.stringify({ status: novoStatus }),
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (data.success) {
+        // Atualiza JSON local
+        const dev = devolucoes.find(d => d.pk === devId);
+        if (dev) { dev.status = data.status; dev.status_display = data.status_display; }
+        // Atualiza a row na tabela
+        atualizarRow(devId, data.status, data.status_display);
+        // Atualiza badge no modal-meta
+        const metaBadge = document.querySelector('#modal-meta .status-badge');
+        if (metaBadge) {
+          metaBadge.className = `status-badge status-${data.status}`;
+          metaBadge.textContent = data.status_display;
+        }
+        // Re-renderiza botões de ação do modal
+        renderModalActions(devId, data.status);
+        render();
+        showToast(`✓ Status atualizado: ${data.status_display}`, 'success');
+      } else {
+        showToast(`✗ ${data.error || 'Erro ao atualizar.'}`, 'error');
+        btns.forEach(b => b.disabled = false);
+      }
+    })
+    .catch(() => {
+      showToast('✗ Erro de conexão.', 'error');
+      btns.forEach(b => b.disabled = false);
+    });
+  };
+
+  // ── Renderiza botões de ação no modal ─────────────────
+  function renderModalActions(devId, status) {
+    // Define quais transições são possíveis a partir de cada status
+    const TRANSITIONS = {
+      'pendente': [
+        ['em_processo', 'btn-status--processar', '▶ Iniciar análise'],
+        ['recusada',    'btn-status--recusar',   '✗ Recusar'],
+      ],
+      'em_processo': [
+        ['concluido',   'btn-status--concluir',  '✓ Concluir'],
+        ['recusada',    'btn-status--recusar',   '✗ Recusar'],
+        ['pendente',    'btn-status--reabrir',   '↩ Devolver para Pendente'],
+      ],
+      'concluido': [],
+      'recusada': [
+        ['pendente', 'btn-status--reabrir', '↩ Reabrir como Pendente'],
+      ],
+    };
+
+    const actions  = TRANSITIONS[status] || [];
+    const container = document.getElementById('modal-actions');
+
+    if (!actions.length) {
+      container.innerHTML =
+        `<span style="font-size:12px;color:var(--text-muted)">
+           Nenhuma ação disponível para o status atual.
+         </span>`;
+      return;
+    }
+
+    container.innerHTML = actions
+      .map(([st, cls, label]) =>
+        `<button class="btn-status ${cls}"
+                 onclick="mudarStatusModal(${devId},'${st}')">${label}</button>`)
+      .join('');
+  }
+
+  // ── Modal ─────────────────────────────────────────────
+  const overlay = document.getElementById('modal-overlay');
+
+  function esc(s) {
+    return String(s || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+  }
+
+  function slabel(s) {
+    return { pendente: 'Pendente', em_processo: 'Em Processo', concluido: 'Concluído', recusada: 'Recusada' }[s] || s;
+  }
+
+  window.abrirModal = function (id) {
+    const dev = devolucoes.find(d => d.pk === id);
+    if (!dev) return;
+
+    document.getElementById('modal-title').textContent    = `Devolução #${dev.pk}`;
+    document.getElementById('modal-subtitle').textContent = `${dev.itens.length} item(ns) · ${dev.data_criacao}`;
+
+    document.getElementById('modal-meta').innerHTML = [
+      ['Nota Fiscal', `<span class="meta-value mono">${esc(dev.numero_nota)}</span>`],
+      ['Cliente',     `<span class="meta-value">${esc(dev.nome_cliente || '—')}</span>`],
+      ['Documento',   `<span class="meta-value mono">${esc(dev.documento || '—')}</span>`],
+      ['Status',      `<span class="status-badge status-${esc(dev.status)}">${slabel(dev.status)}</span>`],
+    ].map(([l, v]) =>
+      `<div class="meta-item"><span class="meta-label">${l}</span>${v}</div>`
+    ).join('');
+
+    renderModalActions(id, dev.status);
+
+    document.getElementById('modal-itens').innerHTML = dev.itens.length
+      ? dev.itens.map(item => `
+          <div class="item-card">
+            <div class="item-icon">📦</div>
+            <div class="item-info">
+              <div class="item-desc">${esc(item.descricao)}</div>
+              <div class="item-code">Cód. ${esc(item.codigo)}</div>
+              <div class="item-meta">
+                ${item.motivo_display
+                  ? `<span class="motivo-badge">${esc(item.motivo_display)}</span>`
+                  : ''}
+              </div>
+              ${item.observacao
+                ? `<div class="item-obs-block">
+                     <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M1 1h10v7H6.5L4 10.5V8H1V1z"/></svg>
+                     ${esc(item.observacao)}
+                   </div>`
+                : ''}
+              ${item.foto_url
+                ? `<div class="item-foto-wrap">
+                     <img src="${esc(item.foto_url)}" class="item-foto-thumb"
+                          alt="Foto do produto"
+                          onclick="abrirFoto('${esc(item.foto_url)}')"
+                          title="Clique para ampliar">
+                     <span class="item-foto-label">📷 Foto anexada</span>
+                   </div>`
+                : ''}
+            </div>
+            <div class="qty-pill"><strong>${item.quantidade}</strong><span>un.</span></div>
+          </div>`)
+        .join('')
+      : '<p style="color:var(--text-muted);font-size:13px;padding:4px 0">Sem itens registrados.</p>';
+
+    // Obs geral
+    const body = document.getElementById('modal-body');
+    body.querySelector('.obs-geral')?.remove();
+    if (dev.obs_geral) {
+      const d = document.createElement('div');
+      d.className = 'obs-geral';
+      d.innerHTML = `<strong>Observação geral:</strong> ${esc(dev.obs_geral)}`;
+      body.appendChild(d);
+    }
+
+    overlay.classList.add('open');
+    document.body.style.overflow = 'hidden';
+  };
+
+  // Lightbox foto
+  window.abrirFoto = function (url) {
+    const lb = document.createElement('div');
+    lb.style.cssText =
+      'position:fixed;inset:0;background:rgba(0,0,0,.82);z-index:9999;'
+      + 'display:flex;align-items:center;justify-content:center;cursor:zoom-out';
+    lb.innerHTML =
+      `<img src="${url}" style="max-width:92vw;max-height:90vh;border-radius:10px;`
+      + `box-shadow:0 24px 80px rgba(0,0,0,.6)">`;
+    lb.onclick = () => lb.remove();
+    document.addEventListener('keydown', function escFn(e) {
+      if (e.key === 'Escape') { lb.remove(); document.removeEventListener('keydown', escFn); }
+    });
+    document.body.appendChild(lb);
+  };
+
+  function fecharModal() {
+    overlay.classList.remove('open');
+    document.body.style.overflow = '';
+  }
+  document.getElementById('btn-fechar-modal')?.addEventListener('click', fecharModal);
+  document.getElementById('btn-fechar-modal-footer')?.addEventListener('click', fecharModal);
+  overlay.addEventListener('click', e => { if (e.target === overlay) fecharModal(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') fecharModal(); });
+
+  // Primeiro render
+  render();
+})();
+</script>
+</body>
+</html>

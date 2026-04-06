@@ -1,0 +1,7 @@
+Django==4.2.0
+PyMySQL==1.1.0
+python-dotenv==1.2.2
+structlog==24.1.0
+django-ratelimit==4.1.0
+Pillow==11.0.0
+pdfplumber==0.11.9

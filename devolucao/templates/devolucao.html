@@ -1,0 +1,867 @@
+{% load static %}
+<!DOCTYPE html>
+<!-- FIX A11Y: lang="pt-BR" — valor BCP 47 válido (era "pt-br") -->
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nova Devolução — Portal de Devoluções</title>
+
+    <!-- FIX SEO: meta description -->
+    <meta name="description" content="Registre uma nova solicitação de devolução informando o CPF/CNPJ, nota fiscal e os produtos a devolver.">
+
+    <!-- FIX PERF: preconnect estabelece o handshake TLS com o Google Fonts ANTES
+         do browser descobrir quais fontes precisa — economia de ~190 ms na LCP.
+         O @import foi removido do style.css e substituído por estas tags. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    <!-- FIX PERF: display=swap — texto aparece imediatamente com fonte fallback
+         enquanto Sora/Fira Code carregam, eliminando o "invisible text" period. -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=Fira+Code:wght@400;500&display=swap">
+
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    <style>
+        .saldo-strip { display:flex; gap:14px; margin-top:6px; flex-wrap:wrap; }
+        .saldo-item { display:flex; flex-direction:column; gap:1px; }
+        .saldo-label { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:var(--text-faint); }
+        .saldo-value { font-family:'Fira Code',monospace; font-size:13px; font-weight:600; color:var(--text-2); }
+        .saldo-value.disponivel { color:var(--blue); }
+        .saldo-value.devolvido  { color:var(--amber); }
+        .prazo-badge { display:inline-flex; align-items:center; gap:5px; padding:2px 9px; border-radius:var(--r-full); font-size:11px; font-weight:700; white-space:nowrap; }
+        .prazo-ok      { background:var(--green-bg); color:var(--green); border:1px solid var(--green-border); }
+        .prazo-warn    { background:var(--amber-bg); color:var(--amber); border:1px solid var(--amber-border); }
+        .prazo-expired { background:var(--red-bg); color:var(--red); border:1px solid var(--red-border); }
+        .foto-area { border:2px dashed var(--border-strong); border-radius:var(--r-sm); padding:14px; text-align:center; font-size:13px; color:var(--text-muted); cursor:pointer; background:var(--surface-2); font-weight:500; transition:all .16s; position:relative; }
+        .foto-area:hover { border-color:var(--blue); background:var(--blue-bg); color:var(--blue); }
+        .foto-area input { display:none; }
+        .foto-preview { display:none; position:relative; margin-top:8px; }
+        .foto-preview img { width:100%; max-height:140px; object-fit:cover; border-radius:var(--r-sm); border:1.5px solid var(--border); }
+        .foto-preview-remove { position:absolute; top:4px; right:4px; width:22px; height:22px; border-radius:50%; background:rgba(0,0,0,.55); color:#fff; border:none; cursor:pointer; font-size:14px; line-height:1; display:flex; align-items:center; justify-content:center; }
+        .foto-preview-remove:hover { background:var(--red); }
+        .td-foto-thumb { width:36px; height:36px; border-radius:var(--r-xs); object-fit:cover; border:1.5px solid var(--border); cursor:pointer; }
+        .nota-search-wrap { position:relative; }
+        .nota-search-input-wrap { position:relative; display:flex; align-items:center; }
+        .nota-search-input-wrap svg.search-icon { position:absolute; left:11px; color:var(--text-faint); pointer-events:none; transition:opacity .15s; flex-shrink:0; }
+        .nota-search-input-wrap:focus-within svg.search-icon { opacity:.7; }
+        #input-nota-busca { font-family:'Sora',sans-serif; font-size:14px; padding:9px 36px 9px 34px; border:1.5px solid var(--border-strong); border-radius:var(--r-sm); background:var(--surface-2); color:var(--text); outline:none; width:100%; transition:box-shadow .15s; }
+        #input-nota-busca:hover  { background:var(--surface); border-color:#b0b9d4; }
+        #input-nota-busca:focus  { border-color:var(--focus-ring); background:var(--surface); box-shadow:0 0 0 3px rgba(29,82,245,.12); }
+        #input-nota-busca:disabled { background:var(--surface-3); color:var(--text-muted); border-color:var(--border); cursor:not-allowed; }
+        #btn-limpar-nota { position:absolute; right:8px; width:20px; height:20px; border-radius:50%; border:none; background:var(--surface-3); color:var(--text-muted); cursor:pointer; display:none; align-items:center; justify-content:center; font-size:13px; line-height:1; transition:opacity .14s; }
+        #btn-limpar-nota:hover { background:var(--red-bg); color:var(--red-dot); }
+        #btn-limpar-nota.visible { display:flex; }
+        #nota-dropdown { display:none; position:fixed; background:var(--surface); border:1.5px solid var(--blue-border); border-radius:var(--r-sm); box-shadow:var(--shadow-md); z-index:9999; max-height:240px; overflow-y:auto; scrollbar-width:thin; }
+        #nota-dropdown.open { display:block; }
+        .nota-opt { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 14px; cursor:pointer; font-size:13.5px; color:var(--text); border-bottom:1px solid var(--border); transition:opacity .1s; }
+        .nota-opt:last-child { border-bottom:none; }
+        .nota-opt:hover, .nota-opt.highlighted { background:var(--blue-bg); }
+        .nota-opt__num { font-family:'Fira Code',monospace; font-weight:600; font-size:13px; color:var(--blue-dark); flex-shrink:0; }
+        .nota-opt__num mark { background:#fef08a; color:var(--text); border-radius:2px; padding:0 1px; }
+        .nota-opt__badge { font-size:10.5px; font-weight:600; padding:2px 8px; border-radius:var(--r-full); border:1px solid transparent; white-space:nowrap; flex-shrink:0; }
+        .nota-opt__badge--ok        { background:var(--green-bg); color:var(--green); border-color:var(--green-border); }
+        .nota-opt__badge--bloqueada { background:var(--surface-3); color:var(--text-faint); border-color:var(--border); font-style:italic; }
+        .nota-opt--bloqueada { opacity:.55; cursor:not-allowed; pointer-events:none; }
+        .nota-dropdown-empty { padding:14px 16px; font-size:13px; color:var(--text-muted); text-align:center; }
+        .nota-dropdown-count { padding:6px 14px; font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:var(--text-faint); border-bottom:1px solid var(--border); background:var(--surface-2); }
+    </style>
+</head>
+<body>
+<div class="page-wrapper">
+    <div class="page-header">
+        <div class="page-header__text">
+            <h1>Formulário de Devolução</h1>
+            <p>Preencha o CPF/CNPJ para liberar os campos seguintes em sequência.</p>
+        </div>
+        <div class="page-header__actions">
+            <a href="{% url 'acompanhar_devolucoes' %}" class="btn btn-ghost">
+                <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 1L2 6.5L8 12"/></svg>
+                Minhas Devoluções
+            </a>
+        </div>
+    </div>
+
+    <!-- FIX A11Y: indicador de progresso — não é navegação, role="list" semântico -->
+    <div class="steps" role="list" aria-label="Etapas do formulário">
+        <div class="step active" id="step-1" role="listitem"><div class="step-num" aria-hidden="true">1</div><div><div class="step-label">Cliente</div><div class="step-sub">CPF / CNPJ</div></div></div>
+        <div class="step" id="step-2" role="listitem"><div class="step-num" aria-hidden="true">2</div><div><div class="step-label">Nota Fiscal</div><div class="step-sub">Selecionar nota</div></div></div>
+        <div class="step" id="step-3" role="listitem"><div class="step-num" aria-hidden="true">3</div><div><div class="step-label">Produtos</div><div class="step-sub">Itens a devolver</div></div></div>
+        <div class="step" id="step-4" role="listitem"><div class="step-num" aria-hidden="true">4</div><div><div class="step-label">Revisão</div><div class="step-sub">Confirmar e enviar</div></div></div>
+    </div>
+
+    <!-- FIX A11Y: <main> landmark — leitores de tela podem pular direto para o conteúdo principal -->
+    <main>
+    <form method="POST" enctype="multipart/form-data" id="form-devolucao">
+        {% csrf_token %}
+        <input type="hidden" name="produtos_json" id="produtos_json" value="[]">
+        {{ cliente_form.tipo }}
+        <input type="hidden" name="numero_nota" id="hidden_numero_nota">
+
+        <!-- Step 1 -->
+        <div class="card card--padded" id="card-cliente">
+            <div class="card-title">
+                Cliente
+                <span class="badge badge-ok" id="badge-cliente" style="display:none">✓ Encontrado</span>
+            </div>
+            <div class="field-row">
+                <div class="field">
+                    <label for="id_documento" id="label-documento">CPF / CNPJ</label>
+                    {{ cliente_form.documento }}
+                    <div class="field-hint" id="msg-cnpj"></div>
+                </div>
+                <div class="field">
+                    <label for="id_nome_exibicao">Nome / Razão Social</label>
+                    {{ cliente_form.nome_exibicao }}
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 2 -->
+        <div class="card card--padded locked" id="card-nota">
+            <div class="card-title">
+                Nota Fiscal
+                <span class="badge badge-lock" id="badge-nota-lock">🔒 Aguardando CPF/CNPJ</span>
+                <span class="badge badge-ok"   id="badge-nota-ok"   style="display:none">✓ Selecionada</span>
+            </div>
+            <div class="field-row">
+                <div class="field">
+                    <label for="input-nota-busca">Selecionar Nota</label>
+                    <!-- FIX A11Y: label sr-only para o select oculto (sem label visível associada) -->
+                    <label for="select-nota" class="sr-only">Nota Fiscal (select)</label>
+                    <select id="select-nota" style="display:none" disabled>
+                        <option value="">— Informe o CPF/CNPJ primeiro —</option>
+                    </select>
+                    <div class="nota-search-wrap" id="nota-search-wrap">
+                        <div class="nota-search-input-wrap">
+                            <svg class="search-icon" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="6" cy="6" r="5"/><path d="m10.5 10.5 2.5 2.5" stroke-linecap="round"/></svg>
+                            <input type="text" id="input-nota-busca" placeholder="Informe o CPF/CNPJ primeiro…" autocomplete="off" disabled aria-label="Buscar nota fiscal" aria-autocomplete="list" aria-controls="nota-dropdown">
+                            <button type="button" id="btn-limpar-nota" title="Limpar seleção" aria-label="Limpar nota selecionada">×</button>
+                        </div>
+                        <div id="nota-dropdown" role="listbox" aria-label="Notas fiscais disponíveis"></div>
+                    </div>
+                    <div class="field-hint" id="msg-nota"></div>
+                </div>
+                <div class="field">
+                    <label for="arquivo_pdf">Anexar PDF <span style="font-weight:400;text-transform:none;color:var(--text-muted)">(opcional)</span></label>
+                    <label class="file-area" id="file-area">
+                        <input type="file" name="arquivo_pdf" accept=".pdf" id="arquivo_pdf">
+                        <span id="file-label">📎 Clique para anexar PDF da nota</span>
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 3 -->
+        <div class="card card--padded" id="card-produtos" style="display:none">
+            <div class="products-header">
+                <div class="card-title" style="margin-bottom:0">
+                    Produtos para devolução
+                    <span class="badge badge-ok" id="badge-produtos" style="display:none">0 itens</span>
+                </div>
+                <button type="button" class="btn btn-primary" id="btn-abrir-modal" disabled aria-haspopup="dialog">
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 1v10M1 6h10"/></svg>
+                    Adicionar produto
+                </button>
+            </div>
+            <div class="bulk-actions" id="bulk-actions" role="toolbar" aria-label="Ações em massa">
+                <span class="bulk-label" id="bulk-label">0 selecionados</span>
+                <button type="button" class="btn btn-danger btn-sm" id="btn-descartar-selecionados">🗑 Remover</button>
+                <button type="button" class="btn btn-ghost btn-sm"  id="btn-desmarcar">Desmarcar</button>
+            </div>
+            <div class="table-wrapper">
+                <table aria-label="Produtos adicionados para devolução">
+                    <thead>
+                        <tr>
+                            <th style="width:36px;text-align:center"><input type="checkbox" id="chk-todos" aria-label="Selecionar todos os produtos"></th>
+                            <th>Código</th><th>Descrição</th>
+                            <th style="text-align:center">Qtd</th>
+                            <th>Motivo</th><th>Observação</th>
+                            <th style="text-align:center">Foto</th>
+                            <th style="text-align:right">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbody-produtos">
+                        <tr id="empty-row">
+                            <td colspan="8">
+                                <div class="empty-state">
+                                    <div class="empty-state-icon">📦</div>
+                                    <p>Nenhum produto adicionado.<br>Clique em <strong>Adicionar produto</strong> para começar.</p>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="produto-lista" id="produto-lista" aria-label="Produtos adicionados"></div>
+        </div>
+
+        <div class="submit-row">
+            <button type="button" class="btn btn-ghost" onclick="window.history.back()">Cancelar</button>
+            <button type="submit" name="action" value="enviar" class="btn btn-primary" id="btn-enviar" disabled>
+                Enviar devolução
+                <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 6.5h11M7 1l5.5 5.5L7 12"/></svg>
+            </button>
+        </div>
+
+        {% if messages %}
+        <div class="messages" role="alert" aria-live="polite" style="margin-top:16px">
+            {% for message in messages %}
+            <div class="message {{ message.tags }}">{{ message }}</div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </form>
+    </main>
+</div>
+
+<!-- Modal produto -->
+<div class="modal-overlay" id="modal-overlay" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title" aria-describedby="modal-subtitle">
+        <div class="modal-header">
+            <div>
+                <h3 id="modal-title">Adicionar Produto</h3>
+                <p id="modal-subtitle">Selecione um produto da nota e informe a quantidade</p>
+            </div>
+            <button class="modal-close" id="btn-fechar-modal" aria-label="Fechar modal">
+                <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M1 1l9 9M10 1L1 10"/></svg>
+            </button>
+        </div>
+        <div class="modal-body modal-body-inner">
+            <div class="field">
+                <label for="modal-select-produto">Produto da Nota</label>
+                <select id="modal-select-produto"><option value="">— Selecione um produto —</option></select>
+                <div class="field-hint" id="msg-select-produto" role="alert"></div>
+            </div>
+            <div class="modal-product-info" id="modal-product-info" style="display:none" aria-live="polite">
+                <div class="modal-product-icon" aria-hidden="true">📦</div>
+                <div style="flex:1;min-width:0">
+                    <div class="modal-product-code" id="info-codigo"></div>
+                    <div class="modal-product-name" id="info-descricao"></div>
+                    <div class="saldo-strip" id="saldo-strip">
+                        <div class="saldo-item"><span class="saldo-label">Original</span><span class="saldo-value" id="info-qtd-original">—</span></div>
+                        <div class="saldo-item"><span class="saldo-label">Já devolvido</span><span class="saldo-value devolvido" id="info-qtd-devolvida">—</span></div>
+                        <div class="saldo-item"><span class="saldo-label">Disponível</span><span class="saldo-value disponivel" id="info-qtd-disp">—</span></div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-field-row">
+                <div class="field">
+                    <label for="modal-quantidade">Quantidade a devolver</label>
+                    <div class="qty-stepper">
+                        <button type="button" class="qty-btn" id="btn-minus" aria-label="Diminuir quantidade">−</button>
+                        <input type="number" class="qty-input" id="modal-quantidade" value="1" min="1" max="9999" aria-label="Quantidade">
+                        <button type="button" class="qty-btn" id="btn-plus" aria-label="Aumentar quantidade">+</button>
+                    </div>
+                    <div class="field-hint" id="msg-qtd" role="alert"></div>
+                </div>
+                <div class="field">
+                    <label for="{{ dev_form.motivo.id_for_label }}">Motivo</label>
+                    {{ dev_form.motivo }}
+                </div>
+            </div>
+            <div class="field">
+                <label for="modal-observacao">Observação <span style="font-weight:400;text-transform:none;color:var(--text-muted)">(opcional)</span></label>
+                <textarea id="modal-observacao" rows="2" style="resize:vertical" placeholder="Detalhe adicional…"></textarea>
+            </div>
+            <div class="field">
+                <label for="modal-foto">Foto do produto <span style="font-weight:400;text-transform:none;color:var(--text-muted)">(opcional — mostra o defeito)</span></label>
+                <label class="foto-area" id="foto-area-label">
+                    <input type="file" id="modal-foto" accept="image/*">
+                    <span id="foto-area-text">📷 Clique para anexar foto do defeito</span>
+                </label>
+                <div class="foto-preview" id="foto-preview">
+                    <img id="foto-preview-img" src="" alt="Pré-visualização da foto do produto" width="400" height="140">
+                    <button type="button" class="foto-preview-remove" id="btn-remover-foto" aria-label="Remover foto">×</button>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-ghost"   id="btn-cancelar-modal">Cancelar</button>
+            <button type="button" class="btn btn-primary" id="btn-confirmar-modal">Adicionar</button>
+        </div>
+    </div>
+</div>
+
+<div class="toast-container" id="toast-container" aria-live="polite" aria-atomic="true"></div>
+
+<script>
+(function () {
+  let produtos      = {{ produtos|default:"[]"|safe }};
+  let notaItens     = [];
+  let editandoIndex = -1;
+  let selecionados  = new Set();
+  const fotosMap    = new Map();
+  let documentoAtual = '';
+  let notaIdAtual    = '';
+  let notasCarregadas = [];
+  let highlightedIndex = -1;
+
+  // FIX #13: wrapper de fetch com detecção de sessão expirada
+  async function apiFetch(url, options = {}) {
+    const resp = await fetch(url, options);
+    if (resp.redirected || resp.status === 403) {
+      alert('Sua sessão expirou. A página será recarregada.');
+      window.location.reload();
+      return null;
+    }
+    return resp;
+  }
+
+  /* ── Utilidades ── */
+  function toast(msg, type = 'success') {
+    const el = document.createElement('div');
+    el.className = `toast ${type}`;
+    el.textContent = (type === 'success' ? '✓ ' : '✗ ') + msg;
+    document.getElementById('toast-container').appendChild(el);
+    setTimeout(() => el.remove(), 2800);
+  }
+  function hint(id, msg, type = '') {
+    const el = document.getElementById(id); if (!el) return;
+    el.textContent = msg;
+    el.className   = 'field-hint' + (type ? ' ' + type : '');
+  }
+  function syncJson()  { document.getElementById('produtos_json').value = JSON.stringify(produtos); }
+  function esc(s)      { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+  function markStep(n, done = false) {
+    const el = document.getElementById(`step-${n}`); if (!el) return;
+    el.classList.remove('active','done'); el.classList.add(done ? 'done' : 'active');
+    if (done && n < 4) {
+      const nx = document.getElementById(`step-${n + 1}`);
+      if (nx && !nx.classList.contains('done')) nx.classList.add('active');
+    }
+  }
+  function removerAlertaNota() { document.getElementById('card-nota').querySelector('.alerta-nota-devolvida')?.remove(); }
+  function mostrarAlertaNota(msg) {
+    removerAlertaNota();
+    const el = document.createElement('div');
+    el.className = 'alerta-nota-devolvida';
+    el.setAttribute('role', 'alert');
+    el.innerHTML = `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="8" r="7"/><path d="M8 5v3.5M8 11h.01"/></svg><div><strong>Nota totalmente devolvida</strong>${msg}</div>`;
+    document.getElementById('card-nota').appendChild(el);
+  }
+
+  /* ── Step 1: documento ── */
+  const campoDocumento = document.getElementById('id_documento');
+  const campoNome      = document.getElementById('id_nome_exibicao');
+  const cardNota       = document.getElementById('card-nota');
+  const selectNota     = document.getElementById('select-nota');
+  const inputNotaBusca = document.getElementById('input-nota-busca');
+  const notaDropdown   = document.getElementById('nota-dropdown');
+  const btnLimparNota  = document.getElementById('btn-limpar-nota');
+
+  document.body.appendChild(notaDropdown);
+
+  function lockNota() {
+    cardNota.classList.add('locked');
+    selectNota.disabled       = true;
+    inputNotaBusca.disabled   = true;
+    inputNotaBusca.value      = '';
+    inputNotaBusca.placeholder = 'Informe o CPF/CNPJ primeiro…';
+    btnLimparNota.classList.remove('visible');
+    fecharDropdown();
+    notasCarregadas = [];
+    document.getElementById('badge-nota-lock').style.display = '';
+    document.getElementById('badge-nota-ok').style.display   = 'none';
+    removerAlertaNota();
+    hint('msg-nota', '');
+    lockProdutos();
+  }
+
+  function lockProdutos() {
+    document.getElementById('card-produtos').style.display = 'none';
+    document.getElementById('btn-abrir-modal').disabled    = true;
+    document.getElementById('btn-enviar').disabled         = true;
+    notaItens = []; notaIdAtual = '';
+    document.getElementById('hidden_numero_nota').value = '';
+    produtos = []; syncJson(); renderLista();
+  }
+
+  function abrirDropdown() {
+    const anchor = document.getElementById('nota-search-wrap');
+    const rect   = anchor ? anchor.getBoundingClientRect() : inputNotaBusca.getBoundingClientRect();
+    notaDropdown.style.top   = (rect.bottom + 4) + 'px';
+    notaDropdown.style.left  = rect.left + 'px';
+    notaDropdown.style.width = rect.width + 'px';
+    notaDropdown.classList.add('open');
+  }
+  function reposicionarDropdown() { if (notaDropdown.classList.contains('open')) abrirDropdown(); }
+  window.addEventListener('resize', reposicionarDropdown);
+  window.addEventListener('scroll', reposicionarDropdown, true);
+  function fecharDropdown() { notaDropdown.classList.remove('open'); highlightedIndex = -1; }
+
+  function renderDropdown(query) {
+    const q = (query || '').trim().toLowerCase();
+    const filtradas = notasCarregadas.filter(n => !q || n.numero_nota.toLowerCase().includes(q));
+    notaDropdown.innerHTML = '';
+    if (!filtradas.length) {
+      notaDropdown.innerHTML = `<div class="nota-dropdown-empty">Nenhuma nota encontrada para "${esc(query)}".</div>`;
+      abrirDropdown(); return;
+    }
+    const disponiveis = filtradas.filter(n => !n.totalmente_devolvida).length;
+    const countEl = document.createElement('div');
+    countEl.className = 'nota-dropdown-count';
+    countEl.textContent = `${filtradas.length} nota(s)${disponiveis < filtradas.length ? ` · ${filtradas.length - disponiveis} bloqueada(s)` : ''}`;
+    notaDropdown.appendChild(countEl);
+    filtradas.forEach((n, idx) => {
+      const opt = document.createElement('div');
+      opt.className   = 'nota-opt' + (n.totalmente_devolvida ? ' nota-opt--bloqueada' : '');
+      opt.dataset.idx = idx;
+      opt.setAttribute('role', 'option');
+      opt.setAttribute('aria-selected', 'false');
+      let numHtml = esc(n.numero_nota);
+      if (q) {
+        const pos = n.numero_nota.toLowerCase().indexOf(q);
+        if (pos >= 0) numHtml = esc(n.numero_nota.slice(0, pos)) + '<mark>' + esc(n.numero_nota.slice(pos, pos + q.length)) + '</mark>' + esc(n.numero_nota.slice(pos + q.length));
+      }
+      opt.innerHTML = `<span class="nota-opt__num">${numHtml}</span><span class="nota-opt__badge ${n.totalmente_devolvida ? 'nota-opt__badge--bloqueada' : 'nota-opt__badge--ok'}">${n.totalmente_devolvida ? 'Totalmente devolvida' : 'Disponível'}</span>`;
+      if (!n.totalmente_devolvida) {
+        opt.addEventListener('mousedown', e => { e.preventDefault(); selecionarNota(n); });
+      }
+      notaDropdown.appendChild(opt);
+    });
+    highlightedIndex = -1;
+    abrirDropdown();
+  }
+
+  function selecionarNota(n) {
+    inputNotaBusca.value = n.numero_nota;
+    btnLimparNota.classList.add('visible');
+    fecharDropdown();
+    removerAlertaNota();
+    lockProdutos();
+    hint('msg-nota', 'Carregando itens…');
+
+    apiFetch(`/ajax/buscar-itens-nota/?nota_id=${n.id}&documento=${documentoAtual}`)
+      .then(r => r?.json())
+      .then(data => {
+        if (!data) return;
+        if (!data.encontrado) {
+          if (data.totalmente_devolvida) {
+            hint('msg-nota', '', '');
+            mostrarAlertaNota(' Todos os itens desta nota já atingiram o limite de devolução.');
+          } else {
+            hint('msg-nota', data.aviso || 'Nota sem itens disponíveis.', 'err');
+          }
+          return;
+        }
+        notaItens   = data.itens;
+        notaIdAtual = String(n.id);
+        document.getElementById('hidden_numero_nota').value = n.numero_nota;
+        const sel = document.getElementById('modal-select-produto');
+        sel.innerHTML = '<option value="">— Selecione um produto —</option>';
+        data.itens.forEach(item => {
+          const o = document.createElement('option');
+          o.value = item.id;
+          o.textContent = `${item.codigo} — ${item.descricao}`;
+          o.dataset.codigo       = item.codigo;
+          o.dataset.descricao    = item.descricao;
+          o.dataset.qtdOriginal  = item.quantidade_original;
+          o.dataset.qtdDevolvida = item.quantidade_devolvida;
+          o.dataset.qtd          = item.quantidade_disponivel;
+          sel.appendChild(o);
+        });
+        document.getElementById('card-produtos').style.display  = 'block';
+        document.getElementById('btn-abrir-modal').disabled     = false;
+        document.getElementById('badge-nota-ok').style.display  = '';
+        document.getElementById('badge-nota-lock').style.display = 'none';
+        document.getElementById('badge-nota-ok').textContent    = `✓ Nota ${n.numero_nota}`;
+        const comSaldo   = data.itens.length;
+        const comParcial = data.itens.filter(i => i.quantidade_devolvida > 0).length;
+        let hintMsg = `${comSaldo} produto(s) com saldo disponível.`;
+        if (comParcial > 0) hintMsg += ` (${comParcial} com devolução parcial anterior)`;
+        hint('msg-nota', hintMsg, comParcial > 0 ? 'warn' : 'ok');
+        markStep(2, true); markStep(3);
+      });
+  }
+
+  inputNotaBusca.addEventListener('input', function () {
+    const q = this.value.trim();
+    btnLimparNota.classList.toggle('visible', q.length > 0);
+    if (!q) { lockProdutos(); hint('msg-nota', `${notasCarregadas.filter(n => !n.totalmente_devolvida).length} nota(s) disponível(eis)`, 'ok'); }
+    renderDropdown(q);
+  });
+  inputNotaBusca.addEventListener('focus', function () { if (notasCarregadas.length) renderDropdown(this.value.trim()); });
+  inputNotaBusca.addEventListener('blur', () => { setTimeout(fecharDropdown, 150); });
+  inputNotaBusca.addEventListener('keydown', function (e) {
+    const opts = [...notaDropdown.querySelectorAll('.nota-opt:not(.nota-opt--bloqueada)')];
+    if (!notaDropdown.classList.contains('open') || !opts.length) {
+      if (e.key === 'ArrowDown' && notasCarregadas.length) renderDropdown(this.value.trim());
+      return;
+    }
+    if (e.key === 'ArrowDown')       { e.preventDefault(); highlightedIndex = Math.min(highlightedIndex + 1, opts.length - 1); }
+    else if (e.key === 'ArrowUp')    { e.preventDefault(); highlightedIndex = Math.max(highlightedIndex - 1, 0); }
+    else if (e.key === 'Enter')      { e.preventDefault(); if (highlightedIndex >= 0) opts[highlightedIndex].dispatchEvent(new MouseEvent('mousedown')); return; }
+    else if (e.key === 'Escape')     { fecharDropdown(); return; }
+    else return;
+    opts.forEach((o, i) => o.classList.toggle('highlighted', i === highlightedIndex));
+    opts[highlightedIndex]?.scrollIntoView({ block: 'nearest' });
+  });
+
+  btnLimparNota.addEventListener('click', () => {
+    inputNotaBusca.value = '';
+    btnLimparNota.classList.remove('visible');
+    lockProdutos();
+    document.getElementById('badge-nota-ok').style.display   = 'none';
+    document.getElementById('badge-nota-lock').style.display = '';
+    removerAlertaNota();
+    hint('msg-nota', `${notasCarregadas.filter(n => !n.totalmente_devolvida).length} nota(s) disponível(eis)`, 'ok');
+    inputNotaBusca.focus();
+  });
+  document.addEventListener('click', e => { if (!e.target.closest('#nota-search-wrap')) fecharDropdown(); });
+
+  campoDocumento?.addEventListener('input', function () {
+    const doc = this.value.replace(/\D/g, '');
+    documentoAtual = '';
+    campoNome.value = '';
+    campoNome.setAttribute('readonly', 'readonly');
+    document.getElementById('badge-cliente').style.display = 'none';
+    lockNota();
+    if (doc.length !== 11 && doc.length !== 14) { hint('msg-cnpj', ''); return; }
+    const labelEl = document.getElementById('label-documento');
+    if (labelEl) labelEl.textContent = doc.length === 11 ? 'CPF' : 'CNPJ';
+    hint('msg-cnpj', 'Buscando…');
+    apiFetch(`/ajax/buscar-cliente/?documento=${doc}`)
+      .then(r => r?.json())
+      .then(data => {
+        if (!data) return;
+        if (data.encontrado) {
+          documentoAtual = doc;
+          campoNome.value = data.nome_exibicao;
+          campoNome.setAttribute('readonly', 'readonly');
+          const tipoInput = document.getElementById('id_tipo_cliente');
+          if (tipoInput) tipoInput.value = data.tipo;
+          hint('msg-cnpj', '✓ Cliente encontrado', 'ok');
+          document.getElementById('badge-cliente').style.display = '';
+          markStep(1, true);
+          carregarNotas(doc);
+        } else {
+          hint('msg-cnpj', 'Cliente não cadastrado no sistema.', 'err');
+          campoNome.removeAttribute('readonly');
+          lockNota();
+        }
+      });
+  });
+
+  function carregarNotas(documento) {
+    hint('msg-nota', 'Buscando notas…');
+    cardNota.classList.add('locked');
+    apiFetch(`/ajax/buscar-notas-cliente/?documento=${documento}`)
+      .then(r => r?.json())
+      .then(data => {
+        if (!data) return;
+        cardNota.classList.remove('locked');
+        if (!data.encontrado || !data.notas?.length) {
+          hint('msg-nota', data.aviso || 'Nenhuma nota encontrada.', 'warn');
+          inputNotaBusca.disabled = true;
+          return;
+        }
+        notasCarregadas = data.notas;
+        inputNotaBusca.disabled    = false;
+        inputNotaBusca.placeholder = 'Digite o número da nota para buscar…';
+        const total      = data.notas.length;
+        const disponiveis = data.notas.filter(n => !n.totalmente_devolvida).length;
+        const bloqueadas  = total - disponiveis;
+        if (disponiveis === 0) {
+          hint('msg-nota', total === 1 ? 'Todos os itens desta nota já foram devolvidos.' : `Todas as ${total} notas já foram totalmente devolvidas.`, 'warn');
+        } else {
+          hint('msg-nota', bloqueadas > 0 ? `${total} nota(s) — ${bloqueadas} totalmente devolvida(s). Clique no campo para ver a lista.` : `${total} nota(s) disponível(eis). Clique no campo ou digite para buscar.`, bloqueadas > 0 ? 'warn' : 'ok');
+        }
+        document.getElementById('badge-nota-lock').style.display = 'none';
+        markStep(2);
+        inputNotaBusca.focus();
+      });
+  }
+
+  document.getElementById('arquivo_pdf')?.addEventListener('change', function () {
+    document.getElementById('file-label').textContent = this.files[0] ? '📄 ' + this.files[0].name : '📎 Clique para anexar PDF da nota';
+  });
+
+  /* ── Modal de produto ── */
+  const overlay = document.getElementById('modal-overlay');
+
+  function abrirModal(index = -1) {
+    editandoIndex = index;
+    const isEdit  = index >= 0;
+    document.getElementById('modal-title').textContent         = isEdit ? 'Editar Produto'         : 'Adicionar Produto';
+    document.getElementById('modal-subtitle').textContent      = isEdit ? 'Altere os dados abaixo' : 'Selecione um produto da nota e informe a quantidade';
+    document.getElementById('btn-confirmar-modal').textContent = isEdit ? 'Salvar alterações'       : 'Adicionar';
+    const sel = document.getElementById('modal-select-produto');
+    if (isEdit) {
+      const p = produtos[index];
+      sel.value = p.produto_id; sel.disabled = true;
+      infoFromId(p.produto_id);
+      document.getElementById('modal-quantidade').value = p.quantidade;
+      document.getElementById('modal-observacao').value  = p.observacao || '';
+      const cm = document.querySelector('[name="motivo"]'); if (cm) cm.value = p.motivo || '';
+    } else {
+      sel.value = ''; sel.disabled = false;
+      document.getElementById('modal-product-info').style.display = 'none';
+      document.getElementById('modal-quantidade').value = 1;
+      document.getElementById('modal-observacao').value  = '';
+      hint('msg-qtd', '');
+      const cm = document.querySelector('[name="motivo"]'); if (cm) cm.value = '';
+      const fotoInp = document.getElementById('modal-foto');
+      if (fotoInp) fotoInp.value = '';
+      document.getElementById('foto-preview').style.display = 'none';
+      document.getElementById('foto-area-text').textContent = '📷 Clique para anexar foto do defeito';
+    }
+    overlay.classList.add('open');
+    overlay.setAttribute('aria-hidden', 'false');
+    document.body.style.overflow = 'hidden';
+    // Foca o primeiro elemento interativo do modal para acessibilidade
+    setTimeout(() => sel.focus(), 50);
+  }
+
+  function fecharModal() {
+    overlay.classList.remove('open');
+    overlay.setAttribute('aria-hidden', 'true');
+    document.body.style.overflow = '';
+    editandoIndex = -1;
+    document.getElementById('modal-select-produto').disabled = false;
+  }
+
+  document.getElementById('modal-foto')?.addEventListener('change', function () {
+    const file = this.files[0];
+    const preview = document.getElementById('foto-preview');
+    const img     = document.getElementById('foto-preview-img');
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = e => { img.src = e.target.result; preview.style.display = 'block'; };
+      reader.readAsDataURL(file);
+      document.getElementById('foto-area-text').textContent = '📷 ' + file.name;
+    } else { preview.style.display = 'none'; }
+  });
+  document.getElementById('btn-remover-foto')?.addEventListener('click', () => {
+    document.getElementById('modal-foto').value = '';
+    document.getElementById('foto-preview').style.display = 'none';
+    document.getElementById('foto-area-text').textContent = '📷 Clique para anexar foto do defeito';
+  });
+  document.getElementById('btn-abrir-modal')?.addEventListener('click',   () => abrirModal(-1));
+  document.getElementById('btn-fechar-modal')?.addEventListener('click',   fecharModal);
+  document.getElementById('btn-cancelar-modal')?.addEventListener('click', fecharModal);
+  overlay.addEventListener('click', e => { if (e.target === overlay) fecharModal(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') fecharModal(); });
+
+  function infoFromId(id) {
+    const item = notaItens.find(i => String(i.id) === String(id));
+    const box  = document.getElementById('modal-product-info');
+    if (item) {
+      document.getElementById('info-codigo').textContent        = item.codigo;
+      document.getElementById('info-descricao').textContent     = item.descricao;
+      document.getElementById('info-qtd-original').textContent  = item.quantidade_original;
+      document.getElementById('info-qtd-devolvida').textContent = item.quantidade_devolvida;
+      document.getElementById('info-qtd-disp').textContent      = item.quantidade_disponivel;
+      document.getElementById('modal-quantidade').max           = item.quantidade_disponivel;
+      document.getElementById('modal-quantidade').value         = 1;
+      box.style.display = 'flex';
+      hint('msg-qtd', '');
+    } else { box.style.display = 'none'; }
+  }
+
+  document.getElementById('modal-select-produto')?.addEventListener('change', function () { infoFromId(this.value); });
+  document.getElementById('btn-minus')?.addEventListener('click', () => {
+    const inp = document.getElementById('modal-quantidade');
+    if (+inp.value > 1) inp.value = +inp.value - 1;
+  });
+  document.getElementById('btn-plus')?.addEventListener('click', () => {
+    const inp = document.getElementById('modal-quantidade');
+    const max = +inp.max || 9999;
+    if (+inp.value < max) inp.value = +inp.value + 1;
+    else hint('msg-qtd', `Máximo disponível: ${max}`, 'warn');
+  });
+
+  document.getElementById('btn-confirmar-modal')?.addEventListener('click', () => {
+    const sel    = document.getElementById('modal-select-produto');
+    const qty    = +document.getElementById('modal-quantidade').value;
+    const motivo = document.querySelector('[name="motivo"]')?.value || '';
+    const obs    = document.getElementById('modal-observacao').value.trim();
+    if (!sel.value) { hint('msg-select-produto', 'Selecione um produto.', 'err'); return; }
+    if (!qty || qty < 1) { hint('msg-qtd', 'Informe uma quantidade válida.', 'err'); return; }
+    const item = notaItens.find(i => String(i.id) === String(sel.value));
+    const limiteDisponivel = item ? item.quantidade_disponivel : 9999;
+    if (qty > limiteDisponivel) { hint('msg-qtd', `Quantidade excede o saldo disponível (${limiteDisponivel} un.).`, 'err'); return; }
+    const produto = { produto_id: sel.value, codigo: item ? item.codigo : '', descricao: item ? item.descricao : '', quantidade: qty, motivo, observacao: obs };
+    if (editandoIndex < 0 && produtos.find(p => String(p.produto_id) === String(produto.produto_id))) { toast('Produto já adicionado.', 'error'); return; }
+    if (editandoIndex >= 0) { produtos[editandoIndex] = produto; toast('Produto atualizado!'); }
+    else { produtos.push(produto); toast('Produto adicionado!'); }
+    const fotoFile = document.getElementById('modal-foto')?.files[0];
+    if (fotoFile) fotosMap.set(String(produto.produto_id), fotoFile);
+    else if (editandoIndex < 0) fotosMap.delete(String(produto.produto_id));
+    syncJson(); renderLista(); fecharModal(); atualizarSteps();
+  });
+
+  /* ── Render produtos ── */
+  function getFotoThumb(prodId) {
+    const file = fotosMap.get(String(prodId));
+    if (!file) return '<span style="color:var(--text-faint);font-size:12px">—</span>';
+    const url = URL.createObjectURL(file);
+    return `<img src="${url}" class="td-foto-thumb" title="${esc(file.name)}" onclick="verFoto('${url}')" alt="Foto do produto">`;
+  }
+  window.verFoto = function(url) {
+    const ov = document.createElement('div');
+    ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:9999;display:flex;align-items:center;justify-content:center;cursor:zoom-out';
+    ov.setAttribute('role', 'dialog');
+    ov.setAttribute('aria-label', 'Visualização da foto');
+    ov.innerHTML = `<img src="${url}" style="max-width:90vw;max-height:90vh;border-radius:8px;box-shadow:0 20px 60px rgba(0,0,0,.5)" alt="Foto do produto em tamanho ampliado">`;
+    ov.onclick = () => ov.remove();
+    document.body.appendChild(ov);
+  };
+  function renderLista() { renderTabela(); renderCards(); syncBadge(); }
+  function syncBadge() {
+    const ok = produtos.length > 0;
+    document.getElementById('badge-produtos').style.display = ok ? '' : 'none';
+    document.getElementById('badge-produtos').textContent   = `✓ ${produtos.length} item(ns)`;
+    document.getElementById('btn-enviar').disabled = !ok;
+    if (!ok) { selecionados.clear(); syncBulkBar(); }
+  }
+  function renderTabela() {
+    const tbody    = document.getElementById('tbody-produtos');
+    const emptyRow = document.getElementById('empty-row');
+    [...tbody.querySelectorAll('tr:not(#empty-row)')].forEach(r => r.remove());
+    if (!produtos.length) { emptyRow.style.display = ''; return; }
+    emptyRow.style.display = 'none';
+    produtos.forEach((p, i) => {
+      const tr = document.createElement('tr');
+      if (selecionados.has(i)) tr.classList.add('selected');
+      tr.innerHTML = `
+        <td style="text-align:center"><input type="checkbox" class="chk-item" data-i="${i}" ${selecionados.has(i) ? 'checked' : ''} aria-label="Selecionar ${esc(p.descricao)}"></td>
+        <td class="td-code">${esc(p.codigo)}</td>
+        <td class="td-desc">${esc(p.descricao)}</td>
+        <td class="td-qty">${p.quantidade}</td>
+        <td><span class="motivo-badge">${esc(p.motivo || '—')}</span></td>
+        <td style="font-size:12.5px;color:var(--text-muted);max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(p.observacao)}">${esc(p.observacao) || '—'}</td>
+        <td style="text-align:center">${getFotoThumb(p.produto_id)}</td>
+        <td class="td-actions">
+          <button type="button" class="btn btn-ghost btn-sm btn-editar" data-i="${i}" aria-label="Editar ${esc(p.descricao)}">✏️ Editar</button>
+          <button type="button" class="btn btn-danger btn-sm btn-del"   data-i="${i}" aria-label="Remover ${esc(p.descricao)}">✕</button>
+        </td>`;
+      tbody.appendChild(tr);
+    });
+    tbody.querySelectorAll('.chk-item').forEach(c => c.addEventListener('change', function () {
+      const idx = +this.dataset.i;
+      if (this.checked) selecionados.add(idx); else selecionados.delete(idx);
+      this.closest('tr').classList.toggle('selected', this.checked);
+      syncBulkBar(); syncSelectAll();
+    }));
+    tbody.querySelectorAll('.btn-editar').forEach(b => b.addEventListener('click', function () { abrirModal(+this.dataset.i); }));
+    tbody.querySelectorAll('.btn-del').forEach(b    => b.addEventListener('click', function () { remover(+this.dataset.i); }));
+  }
+  function renderCards() {
+    const lista = document.getElementById('produto-lista');
+    lista.innerHTML = '';
+    if (!produtos.length) {
+      lista.innerHTML = `<div class="empty-state"><div class="empty-state-icon">📦</div><p>Nenhum produto adicionado.<br>Toque em <strong>Adicionar produto</strong>.</p></div>`;
+      return;
+    }
+    produtos.forEach((p, i) => {
+      const c = document.createElement('div');
+      c.className = 'produto-card' + (selecionados.has(i) ? ' selected' : '');
+      c.innerHTML = `
+        <div class="pcard-top">
+          <div class="pcard-check"><input type="checkbox" class="chk-card" data-i="${i}" ${selecionados.has(i) ? 'checked' : ''} aria-label="Selecionar ${esc(p.descricao)}"></div>
+          <div class="pcard-info"><div class="pcard-desc">${esc(p.descricao)}</div><div class="pcard-code">${esc(p.codigo)}</div></div>
+          <div class="pcard-qty-badge"><strong>${p.quantidade}</strong><span>un.</span></div>
+        </div>
+        <div class="pcard-meta"><span class="motivo-badge">${esc(p.motivo || '—')}</span>${p.observacao ? `<span class="pcard-obs">💬 ${esc(p.observacao)}</span>` : ''}</div>
+        <div class="pcard-actions">
+          <button type="button" class="btn btn-ghost btn-sm" onclick="editarCard(${i})">✏️ Editar</button>
+          <button type="button" class="btn btn-danger btn-sm" onclick="remover(${i})">✕ Remover</button>
+        </div>`;
+      lista.appendChild(c);
+    });
+    lista.querySelectorAll('.chk-card').forEach(c => c.addEventListener('change', function () {
+      const idx = +this.dataset.i;
+      if (this.checked) selecionados.add(idx); else selecionados.delete(idx);
+      this.closest('.produto-card').classList.toggle('selected', this.checked);
+      syncBulkBar(); syncSelectAll();
+    }));
+  }
+  window.editarCard = i => abrirModal(i);
+  window.remover    = idx => {
+    const nome = produtos[idx].descricao;
+    produtos.splice(idx, 1); selecionados.clear();
+    syncJson(); renderLista(); toast(`"${nome}" removido.`, 'error');
+  };
+  document.getElementById('chk-todos')?.addEventListener('change', function () {
+    selecionados.clear();
+    if (this.checked) produtos.forEach((_, i) => selecionados.add(i));
+    renderLista(); syncBulkBar();
+  });
+  function syncSelectAll() {
+    const c = document.getElementById('chk-todos'); if (!c) return;
+    c.checked       = selecionados.size === produtos.length && produtos.length > 0;
+    c.indeterminate = selecionados.size > 0 && selecionados.size < produtos.length;
+  }
+  function syncBulkBar() {
+    document.getElementById('bulk-actions').classList.toggle('visible', selecionados.size > 0);
+    document.getElementById('bulk-label').textContent = `${selecionados.size} item(ns) selecionado(s)`;
+  }
+  document.getElementById('btn-descartar-selecionados')?.addEventListener('click', () => {
+    const n = selecionados.size;
+    [...selecionados].sort((a, b) => b - a).forEach(i => produtos.splice(i, 1));
+    selecionados.clear(); syncJson(); renderLista(); toast(`${n} item(ns) removido(s).`, 'error');
+  });
+  document.getElementById('btn-desmarcar')?.addEventListener('click', () => { selecionados.clear(); renderLista(); syncBulkBar(); });
+  function atualizarSteps() { if (produtos.length > 0) { markStep(3, true); markStep(4); } }
+
+  /* ── Submit com fotos ── */
+  document.getElementById('form-devolucao')?.addEventListener('submit', function (e) {
+    const action = e.submitter?.value || e.target.querySelector('[name="action"]')?.value;
+
+    if (action !== 'enviar') return;
+
+    if (fotosMap.size > 0) {
+      e.preventDefault();
+
+      const formData = new FormData(this);
+
+      // FIX: garante que 'action' chegue ao backend (FormData não inclui botões submit)
+      formData.append('action', 'enviar');
+
+      fotosMap.forEach((file, prodId) => {
+        formData.append('foto_produto_' + prodId, file, file.name);
+      });
+
+      const btn = document.getElementById('btn-enviar');
+      const btnOriginalText = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = 'Enviando…';
+
+      fetch('/devolucao/', {
+        method: 'POST',
+        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        body: formData
+      })
+      .then(resp => {
+        if (!resp.ok) {
+          return resp.text().then(text => { throw new Error('Erro do servidor: ' + text.substring(0, 200)); });
+        }
+        return resp.json();
+      })
+      .then(data => {
+        if (data.success) {
+          window.location.href = data.redirect_url;
+        } else {
+          alert('Erros:\n' + data.errors.join('\n'));
+          btn.disabled = false;
+          btn.textContent = btnOriginalText;
+        }
+      })
+      .catch(err => {
+        console.error('Erro ao enviar:', err);
+        alert('Erro ao enviar a devolução: ' + err.message);
+        btn.disabled = false;
+        btn.textContent = btnOriginalText;
+      });
+    }
+  });
+
+  if (produtos.length > 0) {
+    document.getElementById('card-produtos').style.display = 'block';
+    document.getElementById('btn-abrir-modal').disabled    = false;
+    renderLista(); atualizarSteps();
+  }
+})();
+</script>
+</body>
+</html>

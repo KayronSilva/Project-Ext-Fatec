@@ -1,0 +1,528 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Importar Notas Fiscais</title>
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    <style>
+        body { background: var(--bg); min-height: 100vh; }
+
+        /* topbar */
+        .topbar { position: sticky; top: 0; z-index: 100; background: var(--surface); border-bottom: 1px solid var(--border); }
+        .topbar__inner { max-width: 900px; margin: 0 auto; padding: 0 24px; height: 56px; display: flex; align-items: center; gap: 12px; }
+        .topbar__back { display: flex; align-items: center; gap: 6px; color: var(--text-muted); font-size: 13px; text-decoration: none; }
+        .topbar__back:hover { color: var(--text); }
+        .topbar__title { font-size: 15px; font-weight: 700; flex: 1; }
+
+        .page { max-width: 900px; margin: 0 auto; padding: 28px 24px; }
+        .page-header { margin-bottom: 24px; }
+        .page-header h1 { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+        .page-header p  { font-size: 13px; color: var(--text-muted); }
+
+        /* abas */
+        .import-tabs { display: flex; gap: 0; border: 1.5px solid var(--border); border-radius: var(--r-sm); overflow: hidden; margin-bottom: 24px; width: fit-content; }
+        .import-tab { padding: 9px 22px; font-size: 13px; font-weight: 600; cursor: pointer; border: none; background: var(--surface); color: var(--text-muted); font-family: 'Sora', sans-serif; transition: background .15s, color .15s; }
+        .import-tab + .import-tab { border-left: 1.5px solid var(--border); }
+        .import-tab.active { background: var(--blue); color: #fff; }
+        .import-tab:hover:not(.active) { background: var(--surface-2); color: var(--text); }
+
+        /* card */
+        .card { background: var(--surface); border: 1.5px solid var(--border); border-radius: var(--r-md); overflow: hidden; }
+        .card__section { padding: 24px; border-bottom: 1px solid var(--border); }
+        .card__section:last-child { border-bottom: none; }
+        .section-title { font-size: 14px; font-weight: 700; margin-bottom: 4px; }
+        .section-sub   { font-size: 12.5px; color: var(--text-muted); margin-bottom: 18px; line-height: 1.5; }
+
+        /* upload zone */
+        .upload-zone {
+            border: 2px dashed var(--border);
+            border-radius: var(--r-sm);
+            padding: 40px 24px;
+            text-align: center;
+            cursor: pointer;
+            transition: border-color .2s, background .2s;
+            background: var(--bg);
+            position: relative;
+        }
+        .upload-zone:hover, .upload-zone.drag { border-color: var(--blue); background: var(--blue-bg); }
+        .upload-zone input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+        .upload-zone__icon  { font-size: 32px; margin-bottom: 10px; }
+        .upload-zone__title { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+        .upload-zone__sub   { font-size: 12px; color: var(--text-muted); }
+        .upload-zone__file  { display: none; margin-top: 12px; padding: 8px 14px; background: var(--blue-bg); border: 1px solid var(--blue-border); border-radius: var(--r-sm); font-size: 12.5px; color: var(--blue-dark); font-weight: 600; }
+
+        /* preview da nota */
+        .nota-preview {
+            display: none;
+            margin-top: 20px;
+            border: 1.5px solid var(--border);
+            border-radius: var(--r-sm);
+            overflow: hidden;
+        }
+        .nota-preview.visible { display: block; }
+        .nota-preview__header { padding: 12px 16px; background: var(--surface-2); border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+        .nota-preview__title  { font-size: 13px; font-weight: 700; }
+        .nota-preview__body   { padding: 16px; }
+        .nota-meta { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px; }
+        .nota-meta__item label { font-size: 11px; font-weight: 600; text-transform: uppercase; color: var(--text-muted); display: block; margin-bottom: 3px; }
+        .nota-meta__item span  { font-size: 13.5px; font-weight: 600; }
+
+        .itens-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .itens-table th { text-align: left; padding: 7px 10px; font-size: 11px; font-weight: 600; text-transform: uppercase; color: var(--text-muted); border-bottom: 1px solid var(--border); background: var(--bg); }
+        .itens-table td { padding: 9px 10px; border-bottom: 1px solid #f0f0f0; }
+        .itens-table tr:last-child td { border-bottom: none; }
+        .qty-badge { display: inline-block; padding: 2px 8px; background: var(--blue-bg); color: var(--blue-dark); border-radius: var(--r-full); font-weight: 700; font-size: 12px; }
+
+        /* status badge */
+        .status-pill { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: var(--r-full); font-size: 11.5px; font-weight: 600; }
+        .status-pill--ok      { background: #f0fdf4; border: 1px solid #bbf7d0; color: #15803d; }
+        .status-pill--warn    { background: #fffbeb; border: 1px solid #fde68a; color: #92400e; }
+        .status-pill--error   { background: #fff5f5; border: 1px solid #fca5a5; color: #b91c1c; }
+
+        /* erp status */
+        .erp-status { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-radius: var(--r-sm); border: 1.5px solid var(--border); margin-bottom: 20px; }
+        .erp-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+        .erp-dot--ok      { background: #22c55e; }
+        .erp-dot--error   { background: #ef4444; }
+        .erp-dot--unknown { background: #94a3b8; }
+        .erp-status__text strong { font-size: 13px; display: block; }
+        .erp-status__text span   { font-size: 12px; color: var(--text-muted); }
+
+        /* campo de busca ERP */
+        .field { margin-bottom: 16px; }
+        .field label { display: block; font-size: 12.5px; font-weight: 600; color: var(--text-2); margin-bottom: 6px; }
+        .field input { width: 100%; box-sizing: border-box; }
+        .input-row { display: flex; gap: 10px; }
+        .input-row input { flex: 1; }
+
+        /* resultado ERP */
+        .erp-results { display: none; margin-top: 16px; }
+        .erp-results.visible { display: block; }
+        .erp-nota-list { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
+        .erp-nota-item {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 12px 16px; border: 1.5px solid var(--border); border-radius: var(--r-sm);
+            cursor: pointer; transition: border-color .15s, background .15s;
+        }
+        .erp-nota-item:hover { border-color: var(--blue); background: var(--blue-bg); }
+        .erp-nota-item__info strong { font-size: 13.5px; display: block; }
+        .erp-nota-item__info span   { font-size: 12px; color: var(--text-muted); }
+
+        /* resultados importados */
+        .import-result { display: none; margin-top: 20px; }
+        .import-result.visible { display: block; }
+        .import-result__inner { padding: 16px 20px; border-radius: var(--r-sm); }
+        .import-result--ok    .import-result__inner { background: #f0fdf4; border: 1.5px solid #bbf7d0; }
+        .import-result--error .import-result__inner { background: #fff5f5; border: 1.5px solid #fca5a5; }
+        .import-result__title { font-size: 14px; font-weight: 700; margin-bottom: 6px; }
+        .import-result--ok    .import-result__title { color: #15803d; }
+        .import-result--error .import-result__title { color: #b91c1c; }
+        .import-result__sub   { font-size: 13px; color: var(--text-2); line-height: 1.5; }
+
+        /* spinner */
+        .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,.4); border-top-color: #fff; border-radius: 50%; animation: spin .6s linear infinite; vertical-align: middle; margin-right: 6px; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* histórico de importações */
+        .history-list { display: flex; flex-direction: column; gap: 8px; }
+        .history-item { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border: 1px solid var(--border); border-radius: var(--r-sm); font-size: 13px; }
+        .history-item__icon { font-size: 18px; flex-shrink: 0; }
+        .history-item__info { flex: 1; }
+        .history-item__info strong { display: block; font-weight: 600; }
+        .history-item__info span   { font-size: 11.5px; color: var(--text-muted); }
+
+        .tab-panel { display: none; }
+        .tab-panel.active { display: block; }
+
+        @media (max-width: 600px) {
+            .nota-meta { grid-template-columns: 1fr 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+<nav class="topbar">
+    <div class="topbar__inner">
+        <a href="{% url 'painel_admin' %}" class="topbar__back">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 2L4 7l5 5" stroke-linecap="round"/></svg>
+            Painel
+        </a>
+        <span class="topbar__title">Importar Notas Fiscais</span>
+        <a href="{% url 'gestao_usuarios' %}" class="btn btn-ghost btn-sm" style="margin-left:auto">⚙ Gerenciar Admins</a>
+        <a href="{% url 'logout' %}" class="btn btn-ghost btn-sm">Sair</a>
+    </div>
+</nav>
+
+<div class="page">
+    <div class="page-header">
+        <h1>📥 Entrada de Notas Fiscais</h1>
+        <p>Importe notas de venda para que os clientes possam registrar devoluções.</p>
+    </div>
+
+    <!-- abas -->
+    <div class="import-tabs">
+        <button class="import-tab active" onclick="trocarAba('xml', this)">📄 Upload XML NF-e</button>
+        <button class="import-tab" onclick="trocarAba('erp', this)">🔗 Integração ERP</button>
+    </div>
+
+    <!-- ═══════════════════════════════════════════ -->
+    <!-- ABA XML                                     -->
+    <!-- ═══════════════════════════════════════════ -->
+    <div id="tab-xml" class="tab-panel active">
+        <div class="card">
+            <div class="card__section">
+                <div class="section-title">Upload de XML NF-e</div>
+                <div class="section-sub">
+                    Selecione o arquivo <strong>.xml</strong> da Nota Fiscal Eletrônica (padrão SEFAZ).
+                    O sistema extrairá automaticamente o cliente, produtos e quantidades.
+                </div>
+
+                <div class="upload-zone" id="drop-zone">
+                    <input type="file" id="xml-file-input" accept=".xml" onchange="carregarXML(this)">
+                    <div class="upload-zone__icon">📄</div>
+                    <div class="upload-zone__title">Arraste o XML aqui ou clique para selecionar</div>
+                    <div class="upload-zone__sub">Apenas arquivos .xml · NF-e padrão SEFAZ</div>
+                    <div class="upload-zone__file" id="xml-file-name"></div>
+                </div>
+
+                <!-- Preview da nota extraída -->
+                <div class="nota-preview" id="xml-preview">
+                    <div class="nota-preview__header">
+                        <span class="nota-preview__title">📋 Dados extraídos do XML</span>
+                        <span class="status-pill status-pill--ok" id="xml-status-pill">✓ XML válido</span>
+                    </div>
+                    <div class="nota-preview__body">
+                        <div class="nota-meta">
+                            <div class="nota-meta__item">
+                                <label>Nº da Nota</label>
+                                <span id="xml-numero"></span>
+                            </div>
+                            <div class="nota-meta__item">
+                                <label>Data de Emissão</label>
+                                <span id="xml-data"></span>
+                            </div>
+                            <div class="nota-meta__item">
+                                <label>Cliente</label>
+                                <span id="xml-cliente"></span>
+                            </div>
+                        </div>
+                        <table class="itens-table">
+                            <thead>
+                                <tr>
+                                    <th>Código</th>
+                                    <th>Produto</th>
+                                    <th style="text-align:right">Qtd</th>
+                                </tr>
+                            </thead>
+                            <tbody id="xml-itens-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="import-result" id="xml-result"></div>
+            </div>
+
+            <div class="card__section" style="display:flex;justify-content:flex-end;gap:10px;padding:16px 24px">
+                <button class="btn btn-secondary" onclick="limparXML()">Limpar</button>
+                <button class="btn btn-primary" id="btn-importar-xml" onclick="importarXML()" disabled>
+                    Importar nota
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════ -->
+    <!-- ABA ERP                                     -->
+    <!-- ═══════════════════════════════════════════ -->
+    <div id="tab-erp" class="tab-panel">
+        <div class="card">
+            <div class="card__section">
+                <div class="section-title">Status da Integração</div>
+                <div class="erp-status" id="erp-status-box">
+                    <div class="erp-dot erp-dot--unknown" id="erp-dot"></div>
+                    <div class="erp-status__text">
+                        <strong id="erp-nome">{{ erp_nome }}</strong>
+                        <span id="erp-msg">Clique em "Testar conexão" para verificar.</span>
+                    </div>
+                    <button class="btn btn-secondary btn-sm" onclick="testarConexao()" id="btn-testar">
+                        Testar conexão
+                    </button>
+                </div>
+            </div>
+
+            <div class="card__section">
+                <div class="section-title">Buscar nota por número</div>
+                <div class="section-sub">Informe o número da nota para buscá-la diretamente no ERP.</div>
+
+                <div class="input-row">
+                    <div class="field" style="flex:1;margin-bottom:0">
+                        <input type="text" id="erp-numero" placeholder="Ex: 001-000123" oninput="limparResultadoERP()">
+                    </div>
+                    <button class="btn btn-primary" onclick="buscarNota()" style="align-self:flex-end">Buscar</button>
+                </div>
+
+                <div class="erp-results" id="erp-results"></div>
+                <div class="import-result" id="erp-result"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- histórico -->
+    <div style="margin-top:28px">
+        <h2 style="font-size:15px;font-weight:700;margin-bottom:14px">Importações recentes</h2>
+        {% if historico %}
+        <div class="history-list">
+            {% for nota in historico %}
+            <div class="history-item">
+                <div class="history-item__icon">{{ nota.origem_icon }}</div>
+                <div class="history-item__info">
+                    <strong>NF {{ nota.numero_nota }} · {{ nota.cliente.nome_exibicao }}</strong>
+                    <span>{{ nota.data_emissao|date:"d/m/Y" }} · {{ nota.total_itens }} produto(s)</span>
+                </div>
+                <span class="status-pill status-pill--ok">✓ Importada</span>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div style="text-align:center;padding:32px;color:var(--text-muted);font-size:13px;border:1.5px dashed var(--border);border-radius:var(--r-sm)">
+            Nenhuma nota importada ainda.
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+const CSRF = (document.cookie.match(/csrftoken=([^;]+)/) || [])[1] || '';
+let xmlPayload = null;
+
+// ── Abas ──────────────────────────────────────────────
+function trocarAba(nome, btn) {
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.import-tab').forEach(b => b.classList.remove('active'));
+    document.getElementById(`tab-${nome}`).classList.add('active');
+    btn.classList.add('active');
+}
+
+// ── Drag & drop ───────────────────────────────────────
+const zone = document.getElementById('drop-zone');
+zone.addEventListener('dragover',  e => { e.preventDefault(); zone.classList.add('drag'); });
+zone.addEventListener('dragleave', () => zone.classList.remove('drag'));
+zone.addEventListener('drop', e => {
+    e.preventDefault();
+    zone.classList.remove('drag');
+    const file = e.dataTransfer.files[0];
+    if (file) processarArquivoXML(file);
+});
+
+// ── XML ───────────────────────────────────────────────
+function carregarXML(input) {
+    const file = input.files[0];
+    if (file) processarArquivoXML(file);
+}
+
+function processarArquivoXML(file) {
+    if (!file.name.endsWith('.xml')) {
+        mostrarResultado('xml', false, 'Apenas arquivos .xml são aceitos.');
+        return;
+    }
+
+    document.getElementById('xml-file-name').style.display = 'block';
+    document.getElementById('xml-file-name').textContent = `📎 ${file.name}`;
+
+    const reader = new FileReader();
+    reader.onload = e => {
+        const formData = new FormData();
+        formData.append('xml_content', new Blob([e.target.result], {type: 'text/xml'}), file.name);
+
+        fetch('{% url "preview_xml" %}', {
+            method: 'POST',
+            headers: { 'X-CSRFToken': CSRF },
+            body: formData,
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                xmlPayload = data.nota;
+                mostrarPreviewXML(data.nota);
+            } else {
+                esconderPreviewXML();
+                mostrarResultado('xml', false, data.error || 'Erro ao ler XML.');
+            }
+        })
+        .catch(() => mostrarResultado('xml', false, 'Erro de conexão.'));
+    };
+    reader.readAsArrayBuffer(file);
+}
+
+function mostrarPreviewXML(nota) {
+    document.getElementById('xml-numero').textContent  = nota.numero_nota || '—';
+    document.getElementById('xml-data').textContent    = nota.data_emissao || '—';
+    document.getElementById('xml-cliente').textContent = nota.nome_cliente || nota.documento_cliente || '—';
+
+    const tbody = document.getElementById('xml-itens-body');
+    tbody.innerHTML = nota.itens.map(item => `
+        <tr>
+            <td style="color:var(--text-muted);font-size:12px">${esc(String(item.codigo_produto))}</td>
+            <td>${esc(item.descricao)}</td>
+            <td style="text-align:right"><span class="qty-badge">${item.quantidade}</span></td>
+        </tr>`).join('');
+
+    document.getElementById('xml-preview').classList.add('visible');
+    document.getElementById('btn-importar-xml').disabled = false;
+    document.getElementById('xml-result').classList.remove('visible');
+}
+
+function esconderPreviewXML() {
+    document.getElementById('xml-preview').classList.remove('visible');
+    document.getElementById('btn-importar-xml').disabled = true;
+}
+
+function importarXML() {
+    if (!xmlPayload) return;
+    const btn = document.getElementById('btn-importar-xml');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>Importando…';
+
+    fetch('{% url "importar_xml" %}', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+        body: JSON.stringify({ nota: xmlPayload }),
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            mostrarResultado('xml', true,
+                `✓ Nota <strong>${data.numero_nota}</strong> importada com sucesso! `
+                + `${data.itens_criados} produto(s) · Cliente: ${data.cliente}`
+                + (data.criada ? '' : ' <em>(nota atualizada)</em>'));
+            limparXML();
+            setTimeout(() => location.reload(), 2000);
+        } else {
+            mostrarResultado('xml', false, data.error || 'Erro ao importar.');
+            btn.disabled = false;
+            btn.innerHTML = 'Importar nota';
+        }
+    })
+    .catch(() => {
+        mostrarResultado('xml', false, 'Erro de conexão.');
+        btn.disabled = false;
+        btn.innerHTML = 'Importar nota';
+    });
+}
+
+function limparXML() {
+    xmlPayload = null;
+    document.getElementById('xml-file-input').value = '';
+    document.getElementById('xml-file-name').style.display = 'none';
+    esconderPreviewXML();
+    document.getElementById('xml-result').classList.remove('visible');
+    document.getElementById('btn-importar-xml').disabled = true;
+    document.getElementById('btn-importar-xml').innerHTML = 'Importar nota';
+}
+
+// ── ERP ───────────────────────────────────────────────
+function testarConexao() {
+    const btn = document.getElementById('btn-testar');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner" style="border-top-color:var(--blue)"></span>Testando…';
+
+    fetch('{% url "testar_conexao_erp" %}', {
+        method: 'POST',
+        headers: { 'X-CSRFToken': CSRF },
+    })
+    .then(r => r.json())
+    .then(data => {
+        const dot = document.getElementById('erp-dot');
+        const msg = document.getElementById('erp-msg');
+        dot.className = `erp-dot erp-dot--${data.ok ? 'ok' : 'error'}`;
+        msg.textContent = data.mensagem;
+    })
+    .catch(() => {
+        document.getElementById('erp-msg').textContent = 'Erro ao testar conexão.';
+    })
+    .finally(() => {
+        btn.disabled = false;
+        btn.innerHTML = 'Testar conexão';
+    });
+}
+
+function buscarNota() {
+    const numero = document.getElementById('erp-numero').value.trim();
+    if (!numero) return;
+
+    const div = document.getElementById('erp-results');
+    div.innerHTML = '<span style="font-size:13px;color:var(--text-muted)">Buscando…</span>';
+    div.classList.add('visible');
+
+    fetch('{% url "buscar_nota_erp" %}', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+        body: JSON.stringify({ numero_nota: numero }),
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success && data.nota) {
+            div.innerHTML = `
+                <div class="erp-nota-list">
+                    <div class="erp-nota-item" onclick="importarNotaERP(${JSON.stringify(data.nota).replace(/"/g, '&quot;')})">
+                        <div class="erp-nota-item__info">
+                            <strong>NF ${esc(data.nota.numero_nota)}</strong>
+                            <span>${esc(data.nota.nome_cliente)} · ${data.nota.itens.length} item(ns) · ${esc(data.nota.data_emissao)}</span>
+                        </div>
+                        <span class="btn btn-primary btn-sm">Importar</span>
+                    </div>
+                </div>`;
+        } else {
+            div.innerHTML = `<p style="font-size:13px;color:#b91c1c;margin-top:8px">⚠ ${esc(data.error || 'Nota não encontrada.')}</p>`;
+        }
+    })
+    .catch(() => {
+        div.innerHTML = '<p style="font-size:13px;color:#b91c1c;margin-top:8px">Erro de conexão.</p>';
+    });
+}
+
+function importarNotaERP(nota) {
+    fetch('{% url "importar_erp" %}', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+        body: JSON.stringify({ nota }),
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            mostrarResultado('erp', true,
+                `✓ Nota <strong>${data.numero_nota}</strong> importada com sucesso! `
+                + `${data.itens_criados} produto(s) · Cliente: ${data.cliente}`);
+            document.getElementById('erp-results').classList.remove('visible');
+            document.getElementById('erp-numero').value = '';
+            setTimeout(() => location.reload(), 2000);
+        } else {
+            mostrarResultado('erp', false, data.error || 'Erro ao importar.');
+        }
+    })
+    .catch(() => mostrarResultado('erp', false, 'Erro de conexão.'));
+}
+
+function limparResultadoERP() {
+    document.getElementById('erp-results').classList.remove('visible');
+    document.getElementById('erp-result').classList.remove('visible');
+}
+
+// ── Helpers ───────────────────────────────────────────
+function mostrarResultado(aba, sucesso, html) {
+    const el = document.getElementById(`${aba}-result`);
+    el.className = `import-result import-result--${sucesso ? 'ok' : 'error'} visible`;
+    el.innerHTML = `<div class="import-result__inner">
+        <div class="import-result__title">${sucesso ? '✓ Sucesso' : '✗ Erro'}</div>
+        <div class="import-result__sub">${html}</div>
+    </div>`;
+}
+
+function esc(s) {
+    return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+</script>
+</body>
+</html>

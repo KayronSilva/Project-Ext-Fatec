@@ -1,0 +1,126 @@
+{% autoescape off %}
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Erro do Servidor - 500</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .error-container {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 600px;
+            padding: 60px 40px;
+            text-align: center;
+        }
+        .error-code {
+            font-size: 120px;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 10px;
+            line-height: 1;
+        }
+        .error-title {
+            font-size: 28px;
+            color: #333;
+            margin-bottom: 20px;
+            font-weight: 600;
+        }
+        .error-message {
+            font-size: 16px;
+            color: #666;
+            line-height: 1.6;
+            margin-bottom: 30px;
+        }
+        .error-description {
+            font-size: 14px;
+            color: #999;
+            margin-bottom: 40px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-left: 4px solid #667eea;
+            border-radius: 4px;
+            text-align: left;
+        }
+        .action-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        .btn {
+            padding: 12px 30px;
+            font-size: 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+        .btn-secondary {
+            background: #e0e0e0;
+            color: #333;
+        }
+        .btn-secondary:hover {
+            background: #d0d0d0;
+        }
+        .support-info {
+            margin-top: 40px;
+            padding-top: 30px;
+            border-top: 1px solid #e0e0e0;
+            font-size: 13px;
+            color: #999;
+        }
+    </style>
+</head>
+<body>
+    <div class="error-container">
+        <div class="error-code">500</div>
+        <h1 class="error-title">Opps! Algo deu errado</h1>
+        <p class="error-message">Desculpe-nos. Nosso servidor encontrou um erro inesperado.</p>
+
+        <div class="error-description">
+            <strong>O que aconteceu?</strong>
+            <p style="margin-top: 8px;">
+                Nosso time de desenvolvimento foi notificado sobre este problema e está trabalhando para resolvê-lo o mais rápido possível. Tente recarregar a página em alguns minutos.
+            </p>
+        </div>
+
+        <div class="action-buttons">
+            <button class="btn btn-primary" onclick="window.history.back()">Voltar</button>
+            <a href="/" class="btn btn-secondary">Ir para Home</a>
+        </div>
+
+        <div class="support-info">
+            <p>Se o problema persistir, entre em contato com o suporte técnico.</p>
+        </div>
+    </div>
+</body>
+</html>
+{% endautoescape %}
