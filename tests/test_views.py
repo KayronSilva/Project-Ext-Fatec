@@ -60,9 +60,9 @@ try:
     
     if clientes.exists():
         cliente = clientes.first()
-        print(f'Cliente teste: {cliente.nome_fantasia or cliente.razao_social}')
-        print(f'  Documento: {cliente.documento}')
-        print(f'  Tipo: {cliente.tipo_pessoa}')
+        print(f'Cliente teste: {cliente.razao_social or cliente.nome}')
+        print(f'  Documento: {cliente.cpf or cliente.cnpj}')
+        print(f'  Tipo: {cliente.tipo}')
         
         # Verificar notas vinculadas
         notas = NotaFiscal.objects.filter(cliente=cliente)
@@ -72,7 +72,6 @@ try:
             nota = notas.first()
             print(f'\n  Nota teste: {nota.numero_nota}')
             print(f'    Emissão: {nota.data_emissao}')
-            print(f'    Valor: {nota.valor_total}')
             
             # Verificar itens da nota
             itens = ItemNotaFiscal.objects.filter(nota_fiscal=nota)
@@ -83,7 +82,6 @@ try:
                 print(f'\n    Item teste:')
                 print(f'      Produto: {item.produto.descricao}')
                 print(f'      Quantidade: {item.quantidade}')
-                print(f'      Valor: {item.valor_unitario}')
 
 except Exception as e:
     print(f'✗ Erro ao verificar data integrity: {e}')

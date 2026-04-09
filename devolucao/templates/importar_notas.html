@@ -1,11 +1,9 @@
+{% extends 'base.html' %}
 {% load static %}
-<!DOCTYPE html>
-<html lang="pt-br">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Importar Notas Fiscais</title>
-    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+
+{% block title %}Importar Notas Fiscais{% endblock %}
+
+{% block extra_css %}
     <style>
         body { background: var(--bg); min-height: 100vh; }
 
@@ -140,8 +138,9 @@
             .nota-meta { grid-template-columns: 1fr 1fr; }
         }
     </style>
-</head>
-<body>
+{% endblock %}
+
+{% block content %}
 
 <nav class="topbar">
     <div class="topbar__inner">
@@ -150,7 +149,8 @@
             Painel
         </a>
         <span class="topbar__title">Importar Notas Fiscais</span>
-        <a href="{% url 'gestao_usuarios' %}" class="btn btn-ghost btn-sm" style="margin-left:auto">⚙ Gerenciar Admins</a>
+        <a href="{% url 'gestao_usuarios
+        ' %}" class="btn btn-ghost btn-sm" style="margin-left:auto">⚙ Gerenciar Admins</a>
         <a href="{% url 'logout' %}" class="btn btn-ghost btn-sm">Sair</a>
     </div>
 </nav>
@@ -524,5 +524,5 @@ function esc(s) {
     return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 </script>
-</body>
-</html>
+
+{% endblock %}

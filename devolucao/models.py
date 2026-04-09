@@ -249,6 +249,67 @@ class Cliente(models.Model):
 
 
 # ════════════════════════════════════════════════════════
+# ClienteVinculado — Associação múltipla usuario → clientes
+# ════════════════════════════════════════════════════════
+
+class ClienteVinculado(models.Model):
+    """
+    Modelo intermediário que permite um Usuario ter múltiplos Clientes
+    vinculados (PF ou PJ).
+    
+    Relacionamento:
+    - usuario: Um usuário pode ter vários ClienteVinculado
+    - cliente: Um cliente pode estar vinculado a vários usuários
+    
+    Uso:
+    - Substitui o OneToOneField(Usuario) em Cliente
+    - Admin gerencia vinculações via inline
+    - Cliente vê dropdown com seus clientes vinculados
+    - Views filtram clientes por ClienteVinculado do usuário logado
+    
+    Migração:
+    - Dados existentes (OneToOne) são convertidos em ClienteVinculado
+    - Admin revisa e vincula múltiplos clientes conforme necessário
+    """
+    usuario            = models.ForeignKey(
+        Usuario,
+        on_delete=models.CASCADE,
+        related_name='clientes_vinculados',
+        db_column='id_usuario',
+    )
+    cliente            = models.ForeignKey(
+        Cliente,
+        on_delete=models.CASCADE,
+        related_name='usuarios_vinculados',
+        db_column='id_cliente',
+    )
+    ativo              = models.BooleanField(
+        default=True,
+        db_column='ativo',
+        help_text='Se False, o cliente não aparecerá nos dropdowns do usuário'
+    )
+    data_vinculacao    = models.DateTimeField(
+        auto_now_add=True,
+        db_column='dt_vinculacao',
+        help_text='Data quando o cliente foi vinculado a este usuário'
+    )
+
+    class Meta:
+        db_table       = 'tb_cliente_vinculado'
+        verbose_name   = 'Cliente Vinculado'
+        verbose_name_plural = 'Clientes Vinculados'
+        unique_together = ('usuario', 'cliente')
+        indexes = [
+            models.Index(fields=['usuario', 'ativo']),
+            models.Index(fields=['cliente']),
+        ]
+
+    def __str__(self):
+        status = '✓ Ativo' if self.ativo else '✗ Inativo'
+        return f'{self.usuario.email} → {self.cliente.nome_exibicao} ({status})'
+
+
+# ════════════════════════════════════════════════════════
 # Modelos existentes — sem alteração
 # ════════════════════════════════════════════════════════
 
@@ -315,11 +376,25 @@ class ConfiguracaoSistema(models.Model):
         default=30,
         db_column='prazo_dev_dias',
     )
+    
+    whatsapp_numero = models.CharField(
+        max_length=20,
+        blank=True,
+        null=True,
+        db_column='whatsapp_numero',
+        help_text='Número de WhatsApp para contato (formato: +55 11 99999-9999)',
+    )
 
     @classmethod
     def prazo(cls):
         obj = cls.objects.first()
         return obj.prazo_devolucao_dias if obj else 30
+
+    @classmethod
+    def obter_whatsapp(cls):
+        """Retorna o número de WhatsApp configurado ou None"""
+        obj = cls.objects.first()
+        return obj.whatsapp_numero if obj else None
 
     def save(self, *args, **kwargs):
         self.pk = 1
@@ -451,3 +526,48 @@ class ItemDevolucao(models.Model):
         db_table     = 'tb_itens_devolucao'
         verbose_name = 'Item da Devolução'
         verbose_name_plural = 'Itens da Devolução'
+
+
+# ════════════════════════════════════════════════════════
+# Chat Simples (NEW)
+# ════════════════════════════════════════════════════════
+
+class MensagemChat(models.Model):
+    """
+    Modelo para chat simples entre clientes e admin.
+    
+    - usuario: quem enviou a mensagem (cliente ou admin)
+    - devolucao: (opcional) vinculado a uma devolução específica
+    - texto: conteúdo da mensagem
+    - lido: se foi lido pelo destinatário
+    - criado_em: timestamp
+    """
+    usuario    = models.ForeignKey(
+        Usuario,
+        on_delete=models.CASCADE,
+        db_column='id_usuario',
+        related_name='mensagens_enviadas'
+    )
+    devolucao  = models.ForeignKey(
+        Devolucao,
+        on_delete=models.CASCADE,
+        null=True, blank=True,
+        db_column='id_devolucao',
+        related_name='mensagens_chat'
+    )
+    texto      = models.TextField(db_column='texto')
+    lido       = models.BooleanField(default=False, db_column='lido')
+    criado_em  = models.DateTimeField(auto_now_add=True, db_column='dt_criacao')
+
+    def __str__(self):
+        return f'Chat #{self.pk} - {self.usuario.email} em {self.criado_em.strftime("%d/%m/%Y %H:%M")}'
+
+    class Meta:
+        db_table     = 'tb_mensagem_chat'
+        verbose_name = 'Mensagem Chat'
+        verbose_name_plural = 'Mensagens Chat'
+        ordering     = ['-criado_em']
+        indexes      = [
+            models.Index(fields=['devolucao', '-criado_em']),
+            models.Index(fields=['usuario', '-criado_em']),
+        ]

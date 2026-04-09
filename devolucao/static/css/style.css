@@ -1073,3 +1073,168 @@ select option:disabled {
   margin-top: 4px;
 }
 .item-obs-block svg { flex-shrink: 0; margin-top: 2px; opacity: .5; }
+
+
+/* ════════════════════════════════════════════════════════
+   DARK MODE THEME (NEW)
+   ════════════════════════════════════════════════════════ */
+
+/* Dark mode CSS variables */
+body.dark-mode {
+  --bg:              #0f1419;
+  --surface:         #1a1f2e;
+  --surface-2:       #242a3d;
+  --surface-3:       #2d3347;
+  --border:          #3d4456;
+  --border-strong:   #505968;
+  --text:            #e8ecf5;
+  --text-2:          #c8d0e0;
+  --text-muted:      #99a3b8;
+  --text-faint:      #6b7a94;
+  --blue-bg:         rgba(29, 82, 245, 0.15);
+  --green-bg:        rgba(16, 185, 129, 0.15);
+  --red-bg:          rgba(239, 68, 68, 0.15);
+  --amber-bg:        rgba(245, 158, 11, 0.15);
+  --sky-bg:          rgba(14, 165, 233, 0.15);
+}
+
+body.dark-mode {
+  background-color: var(--bg);
+  color: var(--text);
+}
+
+/* Ensure all elements respect dark mode */
+body.dark-mode .card,
+body.dark-mode .surface,
+body.dark-mode .field input,
+body.dark-mode .field select,
+body.dark-mode .field textarea {
+  background-color: var(--surface);
+  color: var(--text);
+  border-color: var(--border);
+}
+
+body.dark-mode table {
+  background-color: var(--surface);
+  color: var(--text);
+  border-color: var(--border);
+}
+
+body.dark-mode table th {
+  background-color: var(--surface-2);
+  color: var(--text-muted);
+  border-color: var(--border);
+}
+
+body.dark-mode table tbody tr {
+  border-color: var(--border);
+}
+
+body.dark-mode table tbody tr:hover {
+  background-color: rgba(29, 82, 245, 0.1);
+}
+
+body.dark-mode .modal {
+  background-color: var(--surface);
+  color: var(--text);
+  border-color: var(--border);
+}
+
+body.dark-mode .modal-header,
+body.dark-mode .modal-footer {
+  background-color: var(--surface-2);
+  border-color: var(--border);
+}
+
+body.dark-mode .modal-overlay {
+  background-color: rgba(10, 15, 30, 0.8);
+}
+
+body.dark-mode input,
+body.dark-mode textarea,
+body.dark-mode select {
+  background-color: var(--surface-2);
+  color: var(--text);
+  border-color: var(--border-strong);
+}
+
+body.dark-mode input:focus,
+body.dark-mode textarea:focus,
+body.dark-mode select:focus {
+  background-color: var(--surface-2);
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px rgba(29, 82, 245, 0.2);
+}
+
+body.dark-mode input::placeholder {
+  color: var(--text-faint);
+}
+
+body.dark-mode .btn-ghost {
+  background-color: var(--surface-2);
+  color: var(--text-2);
+  border-color: var(--border-strong);
+}
+
+body.dark-mode .btn-ghost:hover {
+  background-color: var(--blue-bg);
+  border-color: var(--blue);
+  color: #64b5f6;
+}
+
+body.dark-mode a {
+  color: #64b5f6;
+}
+
+body.dark-mode a:hover {
+  color: #90caf9;
+}
+
+body.dark-mode .badge,
+body.dark-mode .status-badge {
+  background-color: var(--surface-2);
+  border-color: var(--border);
+}
+
+body.dark-mode .tab {
+  color: var(--text-muted);
+}
+
+body.dark-mode .tab:hover {
+  color: var(--text-2);
+}
+
+body.dark-mode .tab.active {
+  color: var(--blue);
+}
+
+/* Dark Mode Toggle Button */
+.dark-mode-toggle {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 9999;
+  background-color: var(--surface-2);
+  border: 2px solid var(--border-strong);
+  border-radius: 50%;
+  width: 50px;
+  height: 50px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  transition: all 0.3s ease;
+  box-shadow: var(--shadow-sm);
+}
+
+body.dark-mode .dark-mode-toggle {
+  background-color: var(--surface-3);
+  border-color: var(--border);
+}
+
+.dark-mode-toggle:hover {
+  transform: scale(1.1);
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px rgba(29, 82, 245, 0.2);
+}

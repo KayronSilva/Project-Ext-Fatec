@@ -189,4 +189,4 @@ python manage.py test devolucao.tests.PrazoServiceTestCase.test_validar_prazo_ex
 - Services: `devolucao/services.py`
 - Testes: `devolucao/tests.py`
 - Logging: `devolucao/logging_utils.py`
-- Guia Logging: `LOGGING_SETUP.md`
+- Guia Logging: `GUIDES/LOGGING.md`

@@ -1,17 +1,15 @@
+{% extends 'base.html' %}
 {% load static %}
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>
-        {% if acao == 'criar' %}
-            {% if tipo_usuario == 'admin' %}Novo Administrador{% else %}Novo Cliente{% endif %}
-        {% else %}
-            Editar {{ tipo_usuario|title }}
-        {% endif %}
-    </title>
-    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+
+{% block title %}
+    {% if acao == 'criar' %}
+        {% if tipo_usuario == 'admin' %}Novo Administrador{% else %}Novo Cliente{% endif %}
+    {% else %}
+        Editar {{ tipo_usuario|title }}
+    {% endif %}
+{% endblock %}
+
+{% block extra_css %}
     <style>
         body { background: var(--bg); min-height: 100vh; }
 
@@ -177,8 +175,9 @@
         .sub-panel { display: none; }
         .sub-panel.active { display: block; }
     </style>
-</head>
-<body>
+{% endblock %}
+
+{% block content %}
 
 <!-- Topbar -->
 <nav class="topbar">
@@ -208,7 +207,7 @@
     </div>
     {% endif %}
 
-    <form method="POST" id="form-usuario">
+    <form method="POST" id="form-usuario" {% if acao == 'editar' %}data-usuario-id="{{ usuario_editado.id }}"{% endif %}>
         {% csrf_token %}
         <input type="hidden" name="tipo_usuario" value="{{ tipo_usuario }}">
 
@@ -559,6 +558,76 @@
 
         </div><!-- /card -->
 
+        <!-- ═══════════════════════════════════════════════════════ -->
+        <!-- SEÇÃO: Clientes Vinculados (apenas superuser em editar)  -->
+        <!-- ═══════════════════════════════════════════════════════ -->
+        {% if acao == 'editar' and usuario_editado.is_superuser and request.user.is_superuser %}
+        <div class="card-section">
+            <div class="section-title">👥 Clientes Vinculados</div>
+            <div class="section-sub">Gerencie os clientes associados a este usuário administrador.</div>
+
+            <!-- Tabela de clientes vinculados -->
+            <table id="table-clientes-vinculados" style="display:none;width:100%;font-size:13.5px;border-collapse:collapse;margin-bottom:16px">
+                <thead>
+                    <tr style="border-bottom:1px solid var(--border);background:var(--bg-secondary)">
+                        <th style="padding:12px;text-align:left;font-weight:600">Cliente</th>
+                        <th style="padding:12px;text-align:left;font-weight:600;width:100px">Documento</th>
+                        <th style="padding:12px;text-align:center;font-weight:600;width:80px">Ativo</th>
+                        <th style="padding:12px;text-align:left;font-weight:600;width:140px">Vinculado em</th>
+                        <th style="padding:12px;text-align:center;font-weight:600;width:50px">Ações</th>
+                    </tr>
+                </thead>
+                <tbody id="tbody-clientes-vinculados"></tbody>
+            </table>
+
+            <!-- Estado vazio -->
+            <div id="empty-clientes" style="text-align:center;padding:32px;color:var(--text-2);font-size:13.5px">
+                <div style="font-size:32px;margin-bottom:8px">📭</div>
+                <div>Nenhum cliente vinculado ainda.</div>
+                <div style="font-size:12px;margin-top:4px">Clique em "+ Vincular novo cliente" para adicionar.</div>
+            </div>
+
+            <!-- Botão para adicionar cliente -->
+            <button type="button" id="btn-vincular-novo" class="btn btn-secondary" style="margin-top:8px">
+                ➕ Vincular novo cliente
+            </button>
+        </div>
+        {% endif %}
+
+        <!-- Modal: Vincular novo cliente -->
+        <div class="overlay" id="modal-vincular-cliente" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:500;align-items:center;justify-content:center">
+            <div style="background:var(--surface);border-radius:var(--r-md);padding:28px;max-width:450px;width:90%;max-height:80vh;overflow-y:auto;box-shadow:0 16px 48px rgba(0,0,0,.2)">
+                <h3 style="font-size:17px;font-weight:700;margin-bottom:16px">Vincular novo cliente</h3>
+
+                <!-- Search input -->
+                <div style="margin-bottom:16px">
+                    <label style="display:block;font-size:12px;font-weight:600;text-transform:uppercase;color:var(--text-2);margin-bottom:6px">Buscar cliente</label>
+                    <input type="text" id="input-buscar-cliente" placeholder="Digite nome, CNPJ ou CPF..." 
+                           style="width:100%;padding:10px;border:1px solid var(--border);border-radius:var(--r-sm);font-size:13.5px;background:var(--bg-secondary)">
+                    <div style="font-size:11px;color:var(--text-2);margin-top:4px">Mínimo 2 caracteres para buscar</div>
+                </div>
+
+                <!-- Resultados da busca -->
+                <div id="search-results" style="margin-bottom:16px">
+                    <div id="search-loading" style="text-align:center;color:var(--text-2);font-size:13px;padding:16px;display:none">
+                        Buscando clientes...
+                    </div>
+                    <div id="search-empty" style="text-align:center;color:var(--text-2);font-size:13.5px;padding:16px">
+                        Digite para buscar clientes
+                    </div>
+                    <div id="search-list" style="max-height:300px;overflow-y:auto"></div>
+                </div>
+
+                <!-- Botões -->
+                <div style="display:flex;gap:10px;justify-content:flex-end">
+                    <button type="button" class="btn btn-secondary" onclick="fecharModalVincular()">Cancelar</button>
+                    <button type="button" id="btn-confirmar-vincular" class="btn btn-primary" disabled>
+                        ✓ Vincular
+                    </button>
+                </div>
+            </div>
+        </div>
+
         <!-- Footer de ações -->
         <div class="form-footer">
             <a href="{% url 'gestao_usuarios' %}" class="btn btn-secondary">Cancelar</a>
@@ -698,6 +767,249 @@ function showToast(msg, type) {
     document.getElementById('toast-area').appendChild(el);
     setTimeout(() => el.remove(), 3500);
 }
+
+/* ── Clientes Vinculados (Superuser only) ──────────── */
+let clienteVinculadoIdSelecionado = null;
+let usuarioIdAtual = null;
+let debounceTimer = null;
+
+document.addEventListener('DOMContentLoaded', () => {
+    const usuarioId = document.querySelector('[data-usuario-id]')?.dataset.usuarioId 
+                   || new URLSearchParams(window.location.search).get('id');
+    if (usuarioId) {
+        usuarioIdAtual = parseInt(usuarioId);
+        carregarClientesVinculados(usuarioIdAtual);
+    }
+    
+    // Modal vincular
+    document.getElementById('btn-vincular-novo')?.addEventListener('click', () => {
+        clienteVinculadoIdSelecionado = null;
+        document.getElementById('input-buscar-cliente').value = '';
+        document.getElementById('search-list').innerHTML = '';
+        document.getElementById('search-empty').style.display = 'block';
+        document.getElementById('search-loading').style.display = 'none';
+        document.getElementById('btn-confirmar-vincular').disabled = true;
+        document.getElementById('modal-vincular-cliente').style.display = 'flex';
+    });
+    
+    // Fechamento de modal
+    document.getElementById('modal-vincular-cliente')?.addEventListener('click', e => {
+        if (e.target.id === 'modal-vincular-cliente') fecharModalVincular();
+    });
+    
+    // Busca com debounce
+    document.getElementById('input-buscar-cliente')?.addEventListener('input', e => {
+        clearTimeout(debounceTimer);
+        const termo = e.target.value.trim();
+        if (termo.length < 2) {
+            document.getElementById('search-empty').style.display = 'block';
+            document.getElementById('search-list').innerHTML = '';
+            return;
+        }
+        document.getElementById('search-loading').style.display = 'block';
+        debounceTimer = setTimeout(() => buscarClientesDisponiveisUI(termo), 300);
+    });
+    
+    // Confirmar vinculação
+    document.getElementById('btn-confirmar-vincular')?.addEventListener('click', () => {
+        if (clienteVinculadoIdSelecionado && usuarioIdAtual) {
+            vincularClienteUI(usuarioIdAtual, clienteVinculadoIdSelecionado);
+        }
+    });
+});
+
+function carregarClientesVinculados(usuarioId) {
+    fetch(`/ajax/usuarios/${usuarioId}/clientes-vinculados/`)
+        .then(r => r.json())
+        .then(data => {
+            if (!data.success) {
+                showToast('✗ Erro ao carregar clientes vinculados', 'err');
+                return;
+            }
+            
+            const tbody = document.getElementById('tbody-clientes-vinculados');
+            const emptyDiv = document.getElementById('empty-clientes');
+            const table = document.getElementById('table-clientes-vinculados');
+            
+            if (!data.clientes || data.clientes.length === 0) {
+                table.style.display = 'none';
+                emptyDiv.style.display = 'block';
+                return;
+            }
+            
+            tbody.innerHTML = '';
+            data.clientes.forEach(cv => {
+                const tr = document.createElement('tr');
+                tr.style.cssText = 'border-bottom:1px solid var(--border)';
+                
+                const tipo = cv.dados_cliente?.tipo || 'PF/PJ';
+                const documento = cv.dados_cliente?.documento || '—';
+                
+                tr.innerHTML = `
+                    <td style="padding:12px">${cv.nome_exibicao}</td>
+                    <td style="padding:12px;font-size:12px;color:var(--text-2)">${documento}</td>
+                    <td style="padding:12px;text-align:center">
+                        <input type="checkbox" ${cv.ativo ? 'checked' : ''} 
+                               onchange="toggleAtivoClienteUI(${usuarioId}, ${cv.cliente_vinculado_id}, this.checked)">
+                    </td>
+                    <td style="padding:12px;font-size:12px;color:var(--text-2)">${cv.data_vinculacao}</td>
+                    <td style="padding:12px;text-align:center">
+                        <button type="button" class="btn btn-danger" style="padding:6px 10px;font-size:11px"
+                                onclick="desvinculadorClienteUI(${usuarioId}, ${cv.cliente_vinculado_id})">
+                            ✕
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+            
+            table.style.display = 'table';
+            emptyDiv.style.display = 'none';
+        })
+        .catch(err => {
+            console.error('Erro ao carregar clientes vinculados:', err);
+            showToast('✗ Erro de conexão ao carregar clientes', 'err');
+        });
+}
+
+async function buscarClientesDisponiveisUI(termo) {
+    try {
+        const response = await fetch(`/ajax/usuarios/${usuarioIdAtual}/clientes-disponiveis/?termo=${encodeURIComponent(termo)}`);
+        const data = await response.json();
+        
+        document.getElementById('search-loading').style.display = 'none';
+        
+        if (!data.success) {
+            document.getElementById('search-empty').style.display = 'block';
+            document.getElementById('search-list').innerHTML = '';
+            return;
+        }
+        
+        const clientes = data.clientes || [];
+        const searchList = document.getElementById('search-list');
+        
+        if (clientes.length === 0) {
+            document.getElementById('search-empty').style.display = 'block';
+            searchList.innerHTML = '';
+            return;
+        }
+        
+        document.getElementById('search-empty').style.display = 'none';
+        searchList.innerHTML = clientes.map(c => `
+            <div style="padding:10px;border-bottom:1px solid var(--border);cursor:pointer;transition:background 0.15s"
+                 onmouseover="this.style.background='var(--bg-secondary)'"
+                 onmouseout="this.style.background=''"
+                 onclick="selecionarCliente(${c.id}, '${c.nome_exibicao}')">
+                <div style="font-weight:500">${c.nome_exibicao}</div>
+                <div style="font-size:11px;color:var(--text-2)">
+                    ${c.documento} · ${c.tipo}
+                </div>
+            </div>
+        `).join('');
+    } catch (err) {
+        console.error('Erro buscar clientes:', err);
+        showToast('✗ Erro de conexão', 'err');
+        document.getElementById('search-loading').style.display = 'none';
+    }
+}
+
+function selecionarCliente(clienteId, nomeExibicao) {
+    clienteVinculadoIdSelecionado = clienteId;
+    document.getElementById('input-buscar-cliente').value = nomeExibicao;
+    document.getElementById('search-list').innerHTML = '';
+    document.getElementById('search-empty').style.display = 'none';
+    document.getElementById('btn-confirmar-vincular').disabled = false;
+}
+
+async function vincularClienteUI(usuarioId, clienteId) {
+    const btn = document.getElementById('btn-confirmar-vincular');
+    btn.disabled = true; btn.textContent = 'Vinculando…';
+    
+    try {
+        const response = await fetch(`/ajax/usuarios/${usuarioId}/vincular-cliente/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': (document.cookie.match(/csrftoken=([^;]+)/) || [])[1] || ''
+            },
+            body: JSON.stringify({ cliente_id: clienteId })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            showToast('✓ Cliente vinculado com sucesso', 'ok');
+            fecharModalVincular();
+            carregarClientesVinculados(usuarioId);
+        } else {
+            showToast(`✗ ${data.error || 'Erro ao vincular'}`, 'err');
+            btn.disabled = false; btn.textContent = '✓ Vincular';
+        }
+    } catch (err) {
+        console.error('Erro vincular:', err);
+        showToast('✗ Erro de conexão', 'err');
+        btn.disabled = false; btn.textContent = '✓ Vincular';
+    }
+}
+
+async function desvinculadorClienteUI(usuarioId, clienteVinculadoId) {
+    if (!confirm('Remover este cliente da vinculação?')) return;
+    
+    try {
+        const response = await fetch(`/ajax/usuarios/${usuarioId}/clientes-vinculados/${clienteVinculadoId}/remover/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': (document.cookie.match(/csrftoken=([^;]+)/) || [])[1] || ''
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            showToast('✓ Cliente desvinculado', 'ok');
+            carregarClientesVinculados(usuarioId);
+        } else {
+            showToast(`✗ ${data.error || 'Erro ao desvincular'}`, 'err');
+        }
+    } catch (err) {
+        console.error('Erro ao desvinc:', err);
+        showToast('✗ Erro de conexão', 'err');
+    }
+}
+
+async function toggleAtivoClienteUI(usuarioId, clienteVinculadoId, novoStatus) {
+    try {
+        const response = await fetch(`/ajax/usuarios/${usuarioId}/clientes-vinculados/${clienteVinculadoId}/toggle/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': (document.cookie.match(/csrftoken=([^;]+)/) || [])[1] || ''
+            },
+            body: JSON.stringify({ ativo: novoStatus })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            showToast(novoStatus ? '✓ Cliente ativado' : '✓ Cliente desativado', 'ok');
+        } else {
+            showToast(`✗ ${data.error || 'Erro ao atualizar'}`, 'err');
+            carregarClientesVinculados(usuarioId);
+        }
+    } catch (err) {
+        console.error('Erro ao toggle:', err);
+        showToast('✗ Erro de conexão', 'err');
+        carregarClientesVinculados(usuarioId);
+    }
+}
+
+function fecharModalVincular() {
+    document.getElementById('modal-vincular-cliente').style.display = 'none';
+    clienteVinculadoIdSelecionado = null;
+    clearTimeout(debounceTimer);
+}
+
+{% endblock %}
 </script>
 </body>
 </html>

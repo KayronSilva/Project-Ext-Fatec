@@ -1,11 +1,9 @@
+{% extends 'base.html' %}
 {% load static %}
-<!DOCTYPE html>
-<html lang="pt-br">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gestão de Usuários</title>
-    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+
+{% block title %}Gestão de Usuários{% endblock %}
+
+{% block extra_css %}
     <style>
         body { background: var(--bg); color: var(--text); min-height: 100vh; }
 
@@ -103,8 +101,9 @@
             th:nth-child(3), td:nth-child(3) { display: none; }
         }
     </style>
-</head>
-<body>
+{% endblock %}
+
+{% block content %}
 
 <nav class="topbar">
     <div class="topbar__inner">
@@ -403,5 +402,5 @@ function toast(msg, type) {
     setTimeout(() => el.remove(), 3500);
 }
 </script>
-</body>
-</html>
+
+{% endblock %}

@@ -29,8 +29,12 @@ def _is_ajax_request(request):
 from .models import (
     Cliente, NotaFiscal, Produto, ItemNotaFiscal,
     Devolucao, ItemDevolucao, ConfiguracaoSistema, MOTIVOS_DEVOLUCAO,
+    MensagemChat, Usuario, ClienteVinculado,
 )
-from .forms import ClienteForm, NotaForm, DevolucaoForm, CadastroForm, LoginForm, AdminCriarForm
+from .forms import (
+    ClienteForm, NotaForm, DevolucaoForm, CadastroForm, LoginForm,
+    AdminCriarForm, BuscaAvancadaForm, DevolucaoClienteForm,
+)
 from .decorators import (
     admin_required, cliente_required, permission_required_custom,
     cliente_pode_deletar_devolucao,
@@ -77,7 +81,16 @@ def login_cliente_view(request):
         else:
             error = form.errors.get('__all__', ['E-mail ou senha incorretos.'])[0]
 
-    return render(request, 'login_cliente.html', {'form': form, 'error': error})
+    # Obter número de WhatsApp para botão de contato
+    context = {'form': form, 'error': error}
+    try:
+        config = ConfiguracaoSistema.objects.first()
+        if config and config.whatsapp_numero:
+            context['whatsapp_numero'] = config.whatsapp_numero
+    except Exception:
+        pass
+
+    return render(request, 'login_cliente.html', context)
 
 
 def login_admin_view(request):
@@ -113,7 +126,16 @@ def cadastro_view(request):
         messages.success(request, 'Cadastro realizado com sucesso! Bem-vindo(a).')
         return redirect('acompanhar_devolucoes')
 
-    return render(request, 'cadastro.html', {'form': form})
+    # Obter número de WhatsApp para botão de contato
+    context = {'form': form}
+    try:
+        config = ConfiguracaoSistema.objects.first()
+        if config and config.whatsapp_numero:
+            context['whatsapp_numero'] = config.whatsapp_numero
+    except Exception:
+        pass
+
+    return render(request, 'cadastro.html', context)
 
 
 def logout_view(request):
@@ -127,11 +149,33 @@ def logout_view(request):
 # ════════════════════════════════════════════════════════
 
 def _get_cliente_logado(request):
-    """Retorna o Cliente vinculado ao usuário ou None."""
+    """
+    Retorna o Cliente vinculado ao usuário ou None.
+
+    DEPRECATED: Use _get_clientes_vinculados_do_usuario() para nova API.
+    Mantido para compatibilidade com código existente.
+    """
     try:
         return request.user.cliente
     except Exception:
         return None
+
+
+def _get_clientes_vinculados_do_usuario(usuario):
+    """
+    Retorna lista de ClienteVinculado ativos para um usuário.
+
+    Nova API que substitui OneToOne.
+    Retorna lista de ClienteVinculado vinculados ao usuário,
+    filtrados apenas os que estão ativos (ativo=True).
+    """
+    clientes_queryset = (
+        usuario.clientes_vinculados
+        .filter(ativo=True)
+        .select_related('cliente')
+    )
+    # Sort by cliente.nome_exibicao property in Python (can't order by property in ORM)
+    return sorted(clientes_queryset, key=lambda cv: cv.cliente.nome_exibicao)
 
 
 def _quantidade_disponivel(nota_id: int, produto_id: int) -> int:
@@ -162,51 +206,105 @@ def _checar_prazo(nota):
 
 
 # ════════════════════════════════════════════════════════
-# AJAX: busca cliente por CPF ou CNPJ
+# AJAX: busca info do cliente vinculado (nova API)
 # ════════════════════════════════════════════════════════
 
 @cliente_required
 @require_GET
-def buscar_cliente(request):
-    documento = re.sub(r'\D', '', request.GET.get('documento', '').strip())
+def buscar_cliente_vinculado(request):
+    """
+    Retorna informações do cliente para um ClienteVinculado.
 
-    if not documento:
-        return JsonResponse({'encontrado': False, 'nome_exibicao': '', 'tipo': ''})
+    Nova API que substitui buscar_cliente() que usava documento.
 
-    cliente_logado = _get_cliente_logado(request)
-    if not cliente_logado or cliente_logado.documento != documento:
-        return JsonResponse({'encontrado': False, 'nome_exibicao': '', 'tipo': ''}, status=403)
+    Query params:
+    - cliente_vinculado_id: ID do ClienteVinculado
+
+    Returns:
+    {
+        "encontrado": bool,
+        "nome_exibicao": str,
+        "tipo": "PF" | "PJ",
+        "documento": str CPF/CNPJ,
+        "razao_social_ou_nome": str
+    }
+    """
+    cliente_vinculado_id = request.GET.get('cliente_vinculado_id', '').strip()
+
+    if not cliente_vinculado_id:
+        return JsonResponse({'encontrado': False}, status=400)
+
+    try:
+        cliente_vinculado = ClienteVinculado.objects.get(
+            id=cliente_vinculado_id,
+            usuario=request.user,
+            ativo=True
+        )
+        cliente = cliente_vinculado.cliente
+    except ClienteVinculado.DoesNotExist:
+        return JsonResponse({'encontrado': False}, status=403)
 
     return JsonResponse({
-        'encontrado':    True,
-        'tipo':          cliente_logado.tipo,
-        'nome_exibicao': cliente_logado.nome_exibicao,
-        'razao_social':  cliente_logado.razao_social or cliente_logado.nome or '',
+        'encontrado': True,
+        'tipo': cliente.tipo,
+        'nome_exibicao': cliente.nome_exibicao,
+        'documento': cliente.documento,
+        'razao_social_ou_nome': cliente.razao_social or cliente.nome or '',
     })
 
 
 # ════════════════════════════════════════════════════════
-# AJAX: busca notas do cliente
+# AJAX: busca notas do cliente vinculado (nova API)
 # ════════════════════════════════════════════════════════
 
 @cliente_required
 @require_GET
-def buscar_notas_cliente(request):
-    documento = re.sub(r'\D', '', request.GET.get('documento', '').strip())
+def buscar_notas_cliente_vinculado(request):
+    """
+    Retorna notas fiscais de um cliente vinculado.
 
-    cliente = _get_cliente_logado(request)
-    if not cliente:
+    Nova API que substitui buscar_notas_cliente() que usava documento.
+
+    Query params:
+    - cliente_vinculado_id: ID do ClienteVinculado
+
+    Returns:
+    {
+        "encontrado": bool,
+        "notas": list[{id, numero_nota, data_emissao, ...}],
+        "aviso": str (opcional)
+    }
+    """
+    cliente_vinculado_id = request.GET.get('cliente_vinculado_id', '').strip()
+    logger.info(f"buscar_notas_cliente_vinculado: usuario={request.user.id}, cliente_vinculado_id={cliente_vinculado_id}")
+
+    if not cliente_vinculado_id:
+        logger.warning(f"buscar_notas_cliente_vinculado: cliente_vinculado_id vazio para usuario {request.user.id}")
+        return JsonResponse({'encontrado': False, 'notas': []}, status=400)
+
+    try:
+        cliente_vinculado = ClienteVinculado.objects.get(
+            id=cliente_vinculado_id,
+            usuario=request.user,
+            ativo=True
+        )
+        logger.info(f"ClienteVinculado encontrado: {cliente_vinculado.id} para usuario {request.user.id}")
+    except ClienteVinculado.DoesNotExist:
+        logger.warning(f"ClienteVinculado não encontrado ou inativo: id={cliente_vinculado_id}, usuario={request.user.id}")
         return JsonResponse({'encontrado': False, 'notas': []}, status=403)
-    if cliente.documento != documento:
-        return JsonResponse({'encontrado': False, 'notas': []}, status=403)
+
+    cliente = cliente_vinculado.cliente
 
     notas_qs = (
         NotaFiscal.objects
         .filter(cliente=cliente, itens__isnull=False)
         .distinct()
     )
+    
+    logger.info(f"Notas encontradas (com itens): {notas_qs.count()} para cliente {cliente.id}")
 
     if not notas_qs.exists():
+        logger.info(f"Nenhuma nota com itens para cliente {cliente.id}")
         return JsonResponse({
             'encontrado': True,
             'notas': [],
@@ -234,48 +332,109 @@ def buscar_notas_cliente(request):
     notas_objs = {n.pk: n for n in notas_qs}
 
     notas_list = []
+    expired_count = 0
+
     for nota in notas_objs.values():
+        expirado, dias_restantes = _checar_prazo(nota)
+        if expirado:
+            logger.debug(f"Nota {nota.numero_nota} expirada (dias restantes: {dias_restantes})")
+            expired_count += 1
+            continue
+
         original   = orig_map.get(nota.pk, 0)
         devolvido  = dev_map.get(nota.pk, 0)
         disponivel = max(0, original - devolvido)
-        expirado, dias_restantes = _checar_prazo(nota)
 
         notas_list.append({
             'id':                   nota.pk,
             'numero_nota':          nota.numero_nota,
             'totalmente_devolvida': disponivel == 0,
-            'prazo_expirado':       bool(expirado),
+            'prazo_expirado':       False,
             'dias_restantes':       dias_restantes,
             'data_emissao':         nota.data_emissao.strftime('%d/%m/%Y') if nota.data_emissao else None,
         })
 
+    if not notas_list:
+        msg = 'Nenhuma nota disponível para este cliente.'
+        if expired_count > 0:
+            prazo = ConfiguracaoSistema.prazo()
+            msg = (
+                f'Nenhuma nota disponível dentro do prazo de {prazo} dias. '
+                f'Todas as {expired_count} nota(s) encontradas estão expiradas.'
+            )
+            logger.info(f"Todas as notas expiradas para cliente {cliente.id}: {expired_count} notas")
+        
+        return JsonResponse({
+            'encontrado': True,
+            'notas': [],
+            'aviso': msg,
+        })
+
+    logger.info(f"Retornando {len(notas_list)} notas disponíveis para cliente {cliente.id}")
     return JsonResponse({'encontrado': True, 'notas': notas_list})
 
 
 # ════════════════════════════════════════════════════════
-# AJAX: busca itens de uma nota
+# AJAX: busca itens de uma nota do cliente vinculado (nova API)
 # ════════════════════════════════════════════════════════
 
 @cliente_required
 @require_GET
-def buscar_itens_nota(request):
-    nota_id   = request.GET.get('nota_id', '').strip()
-    documento = re.sub(r'\D', '', request.GET.get('documento', '').strip())
+def buscar_itens_nota_cliente_vinculado(request):
+    """
+    Retorna itens de uma nota fiscal de um cliente vinculado.
 
-    cliente = _get_cliente_logado(request)
-    if not cliente:
+    Nova API que substitui buscar_itens_nota() que usava documento.
+
+    Query params:
+    - cliente_vinculado_id: ID do ClienteVinculado
+    - nota_id: ID da NotaFiscal
+
+    Returns:
+    {
+        "encontrado": bool,
+        "itens": list[{id, codigo, descricao, quantidade_disponivel, ...}],
+        "nota_id": int,
+        "dias_restantes": int,
+        "prazo_dias": int,
+        "data_emissao": str,
+        "aviso": str (opcional),
+        "prazo_expirado": bool (opcional),
+        "totalmente_devolvida": bool (opcional)
+    }
+    """
+    cliente_vinculado_id = request.GET.get('cliente_vinculado_id', '').strip()
+    nota_id = request.GET.get('nota_id', '').strip()
+    logger.info(f"buscar_itens_nota_cliente_vinculado: usuario={request.user.id}, cliente_vinculado_id={cliente_vinculado_id}, nota_id={nota_id}")
+
+    if not cliente_vinculado_id or not nota_id:
+        logger.warning(f"Parâmetros inválidos: cliente_vinculado_id={cliente_vinculado_id}, nota_id={nota_id}")
+        return JsonResponse({'encontrado': False, 'itens': []}, status=400)
+
+    try:
+        cliente_vinculado = ClienteVinculado.objects.get(
+            id=cliente_vinculado_id,
+            usuario=request.user,
+            ativo=True
+        )
+        logger.info(f"ClienteVinculado validado: {cliente_vinculado.id}")
+    except ClienteVinculado.DoesNotExist:
+        logger.warning(f"ClienteVinculado não encontrado: id={cliente_vinculado_id}")
         return JsonResponse({'encontrado': False, 'itens': [], 'aviso': 'Acesso negado.'}, status=403)
-    if cliente.documento != documento:
-        return JsonResponse({'encontrado': False, 'itens': [], 'aviso': 'Acesso negado.'}, status=403)
+
+    cliente = cliente_vinculado.cliente
 
     try:
         nota = NotaFiscal.objects.get(id=nota_id, cliente=cliente)
+        logger.info(f"Nota encontrada: {nota.numero_nota} (id={nota.id})")
     except NotaFiscal.DoesNotExist:
+        logger.warning(f"Nota não encontrada: id={nota_id}, cliente={cliente.id}")
         return JsonResponse({'encontrado': False, 'itens': [], 'aviso': 'Nota não encontrada para este cliente.'})
 
     expirado, dias_restantes = _checar_prazo(nota)
     if expirado:
         prazo = ConfiguracaoSistema.prazo()
+        logger.warning(f"Nota expirada: {nota.numero_nota}, dias_restantes={dias_restantes}")
         return JsonResponse({
             'encontrado':     False,
             'itens':          [],
@@ -288,7 +447,10 @@ def buscar_itens_nota(request):
         })
 
     itens = nota.itens.select_related('produto').all()
+    logger.info(f"Total de itens na nota: {itens.count()}")
+    
     if not itens.exists():
+        logger.warning(f"Nota sem itens: {nota.numero_nota}")
         return JsonResponse({'encontrado': False, 'itens': [], 'aviso': 'Nota sem itens cadastrados.'})
 
     dados = []
@@ -301,6 +463,7 @@ def buscar_itens_nota(request):
 
         disponivel = max(0, item.quantidade - ja_devolvido)
         if disponivel == 0:
+            logger.debug(f"Produto {item.produto.codigo} totalmente devolvido")
             continue
 
         dados.append({
@@ -313,6 +476,7 @@ def buscar_itens_nota(request):
         })
 
     if not dados:
+        logger.info(f"Todos os itens da nota {nota.numero_nota} já foram devolvidos")
         return JsonResponse({
             'encontrado': False, 'itens': [],
             'totalmente_devolvida': True,
@@ -320,6 +484,7 @@ def buscar_itens_nota(request):
         })
 
     prazo = ConfiguracaoSistema.prazo()
+    logger.info(f"Retornando {len(dados)} itens disponíveis para nota {nota.numero_nota}")
     return JsonResponse({
         'encontrado':     True,
         'itens':          dados,
@@ -331,33 +496,256 @@ def buscar_itens_nota(request):
 
 
 # ════════════════════════════════════════════════════════
+# NOVO: Busca unificada por nota ou produto (com dropdown tipo de busca)
+# ════════════════════════════════════════════════════════
+
+@cliente_required
+@require_GET
+def buscar_notas_por_filtro_cliente_vinculado(request):
+    """
+    NOVO: Busca notas por filtro unificado (nota ou produto).
+    
+    Permite cliente buscar por:
+    - tipo_busca='nota': busca por ID da nota ou número da nota
+    - tipo_busca='produto': busca por código ou descrição do produto
+    
+    Query params:
+    - cliente_vinculado_id: ID do ClienteVinculado
+    - tipo_busca: 'nota' ou 'produto'
+    - termo_busca: texto a buscar (mínimo 2 caracteres)
+    
+    Returns:
+    {
+        "encontrado": bool,
+        "notas": list[{
+            id, numero_nota, data_emissao, dias_restantes,
+            itens: [{id, codigo, descricao, quantidade_original, quantidade_devolvida, quantidade_disponivel}]
+        }],
+        "mensagem": str (se não encontrar),
+        "tipo_busca": str,
+        "termo_busca": str
+    }
+    """
+    from django.db.models import Q
+    
+    cliente_vinculado_id = request.GET.get('cliente_vinculado_id', '').strip()
+    tipo_busca = request.GET.get('tipo_busca', '').strip().lower()
+    termo_busca = request.GET.get('termo_busca', '').strip()
+    
+    logger.info(f"buscar_notas_por_filtro: usuario={request.user.id}, tipo={tipo_busca}, termo='{termo_busca}'")
+    
+    # Validações
+    if not cliente_vinculado_id or tipo_busca not in ['nota', 'produto']:
+        logger.warning(f"Parâmetros inválidos: cliente_vinculado_id={cliente_vinculado_id}, tipo_busca={tipo_busca}")
+        return JsonResponse({'encontrado': False, 'notas': [], 'mensagem': 'Parâmetros inválidos.'}, status=400)
+    
+    if len(termo_busca) < 2:
+        logger.warning(f"Termo de busca muito curto: '{termo_busca}'")
+        return JsonResponse({'encontrado': False, 'notas': [], 'mensagem': 'Digite pelo menos 2 caracteres.'}, status=400)
+    
+    # Validar cliente vinculado
+    try:
+        cliente_vinculado = ClienteVinculado.objects.get(
+            id=cliente_vinculado_id,
+            usuario=request.user,
+            ativo=True
+        )
+        logger.info(f"ClienteVinculado validado: {cliente_vinculado.id}")
+    except ClienteVinculado.DoesNotExist:
+        logger.warning(f"ClienteVinculado não encontrado: id={cliente_vinculado_id}")
+        return JsonResponse({'encontrado': False, 'notas': [], 'mensagem': 'Acesso negado.'}, status=403)
+    
+    cliente = cliente_vinculado.cliente
+    
+    # Buscar notas baseado no tipo de filtro
+    if tipo_busca == 'nota':
+        # Busca por ID da nota ou número da nota
+        notas_qs = NotaFiscal.objects.filter(
+            cliente=cliente,
+            itens__isnull=False
+        ).filter(
+            Q(id__icontains=termo_busca) | Q(numero_nota__icontains=termo_busca)
+        ).distinct()
+        logger.info(f"Busca por nota: encontradas {notas_qs.count()} notas")
+    
+    elif tipo_busca == 'produto':
+        # Busca por código ou descrição do produto nos itens
+        notas_qs = (NotaFiscal.objects.filter(
+            cliente=cliente,
+            itens__produto__codigo__icontains=termo_busca,
+            itens__isnull=False
+        ).distinct() | NotaFiscal.objects.filter(
+            cliente=cliente,
+            itens__produto__descricao__icontains=termo_busca,
+            itens__isnull=False
+        ).distinct())
+        logger.info(f"Busca por produto: encontradas {notas_qs.count()} notas")
+    
+    # Se não encontrou notas
+    if not notas_qs.exists():
+        mensagem = f'Nenhuma nota encontrada para: {termo_busca}'
+        logger.info(f"Nenhuma nota encontrada para cliente {cliente.id} com termo '{termo_busca}'")
+        return JsonResponse({
+            'encontrado': False,
+            'notas': [],
+            'mensagem': mensagem,
+            'tipo_busca': tipo_busca,
+            'termo_busca': termo_busca,
+        })
+    
+    # Mapa de quantidades originais e devolvidas
+    notas_ids = list(notas_qs.values_list('id', flat=True))
+    
+    orig_map = {
+        r['nota_fiscal_id']: r['total']
+        for r in ItemNotaFiscal.objects
+            .filter(nota_fiscal_id__in=notas_ids)
+            .values('nota_fiscal_id')
+            .annotate(total=Sum('quantidade'))
+    }
+    
+    dev_map = {
+        r['nf_id']: r['total']
+        for r in ItemDevolucao.objects
+            .filter(devolucao__nota_fiscal_id__in=notas_ids)
+            .values(nf_id=F('devolucao__nota_fiscal_id'))
+            .annotate(total=Sum('quantidade_devolvida'))
+    }
+    
+    # Montar resposta com notas e itens
+    notas_list = []
+    for nota in notas_qs.select_related('cliente').prefetch_related('itens__produto'):
+        expirado, dias_restantes = _checar_prazo(nota)
+        if expirado:
+            logger.debug(f"Nota {nota.numero_nota} expirada")
+            continue
+        
+        # Montar itens dessa nota
+        itens = []
+        for item in nota.itens.all():
+            ja_devolvido = (
+                ItemDevolucao.objects
+                .filter(devolucao__nota_fiscal=nota, produto=item.produto)
+                .aggregate(total=Sum('quantidade_devolvida'))['total']
+            ) or 0
+            
+            disponivel = max(0, item.quantidade - ja_devolvido)
+            
+            # Se busca por produto, filtrar itens que batem
+            if tipo_busca == 'produto':
+                if not (termo_busca.lower() in item.produto.codigo.lower() or 
+                        termo_busca.lower() in item.produto.descricao.lower()):
+                    continue
+            
+            itens.append({
+                'id': item.produto.id,
+                'codigo': item.produto.codigo,
+                'descricao': item.produto.descricao,
+                'quantidade_original': item.quantidade,
+                'quantidade_devolvida': ja_devolvido,
+                'quantidade_disponivel': disponivel,
+            })
+        
+        # Adicionar nota apenas se tiver itens
+        if itens:
+            notas_list.append({
+                'id': nota.id,
+                'numero_nota': nota.numero_nota,
+                'data_emissao': nota.data_emissao.strftime('%d/%m/%Y') if nota.data_emissao else None,
+                'dias_restantes': dias_restantes,
+                'itens': itens,
+            })
+    
+    if not notas_list:
+        mensagem = f'Nenhuma nota com itens disponíveis para: {termo_busca}'
+        return JsonResponse({
+            'encontrado': False,
+            'notas': [],
+            'mensagem': mensagem,
+            'tipo_busca': tipo_busca,
+            'termo_busca': termo_busca,
+        })
+    
+    logger.info(f"Retornando {len(notas_list)} notas para cliente {cliente.id}")
+    return JsonResponse({
+        'encontrado': True,
+        'notas': notas_list,
+        'tipo_busca': tipo_busca,
+        'termo_busca': termo_busca,
+        'total': len(notas_list),
+    })
+
+
+# ════════════════════════════════════════════════════════
+# DEPRECATED AJAX FUNCTIONS (mantém compatibilidade)
+# ════════════════════════════════════════════════════════
+
+@cliente_required
+@require_GET
+def buscar_cliente(request):
+    """
+    DEPRECATED: Use buscar_cliente_vinculado() em vez disso.
+    Mantido para backward compatibility.
+    """
+    return JsonResponse({'encontrado': False, 'nome_exibicao': '', 'tipo': ''}, status=400)
+
+
+@cliente_required
+@require_GET
+def buscar_notas_cliente(request):
+    """
+    DEPRECATED: Use buscar_notas_cliente_vinculado() em vez disso.
+    Mantido para backward compatibility.
+    """
+    return JsonResponse({'encontrado': False, 'notas': []}, status=400)
+
+
+@cliente_required
+@require_GET
+def buscar_itens_nota(request):
+    """
+    DEPRECATED: Use buscar_itens_nota_cliente_vinculado() em vez disso.
+    Mantido para backward compatibility.
+    """
+    return JsonResponse({'encontrado': False, 'itens': []}, status=400)
+
+
+# ════════════════════════════════════════════════════════
 # Tela de devolução
 # ════════════════════════════════════════════════════════
 
 @cliente_required
 def tela_devolucao(request):
     # Verifica permissão de criar antes de exibir o formulário
-    cliente = _get_cliente_logado(request)
-    if cliente and not cliente.tem_permissao('criar'):
-        messages.error(request, '⛔ Você não tem permissão para criar devoluções.')
+    cliente_vinculados = _get_clientes_vinculados_do_usuario(request.user)
+
+    # CORRIGIDO: usar "not lista" em vez de ".exists()" pois a função retorna uma lista Python
+    if not cliente_vinculados:
+        messages.error(request, '⛔ Nenhuma empresa ou pessoa vinculada à sua conta. Contate o administrador.')
         return redirect('acompanhar_devolucoes')
 
     if request.method == 'POST':
         action = request.POST.get('action')
 
         if action == 'enviar':
-            cliente_form = ClienteForm(request.POST)
-            nota_form    = NotaForm(request.POST, request.FILES)
-            return _handle_enviar(request, cliente_form, nota_form)
+            dev_form = DevolucaoClienteForm(data=request.POST, files=request.FILES, usuario=request.user)
+            return _handle_enviar_novo(request, dev_form)
 
         if action == 'carregar_pdf':
             return _handle_carregar_pdf(request)
 
+    # Obter número de WhatsApp para o botão de contato
+    try:
+        config = ConfiguracaoSistema.objects.first()
+        whatsapp_numero = config.whatsapp_numero if config else None
+    except Exception:
+        whatsapp_numero = None
+
     return render(request, 'devolucao.html', {
-        'cliente_form': ClienteForm(),
-        'nota_form':    NotaForm(),
-        'dev_form':     DevolucaoForm(),
-        'produtos':     [],
+        'devolucao_form': DevolucaoClienteForm(usuario=request.user),
+        'dev_form':       DevolucaoForm(),
+        'produtos':       [],
+        'whatsapp_numero': whatsapp_numero,
     })
 
 
@@ -383,11 +771,17 @@ def _handle_enviar(request, cliente_form, nota_form):
                 return JsonResponse({'success': False, 'errors': errors})
             else:
                 messages.error(request, 'Verifique os campos do formulário.')
+                try:
+                    config = ConfiguracaoSistema.objects.first()
+                    whatsapp_numero = config.whatsapp_numero if config else None
+                except Exception:
+                    whatsapp_numero = None
                 return render(request, 'devolucao.html', {
                     'cliente_form': cliente_form,
                     'nota_form':    nota_form,
                     'dev_form':     DevolucaoForm(),
                     'produtos':     produtos,
+                    'whatsapp_numero': whatsapp_numero,
                 })
 
         documento   = re.sub(r'\D', '', cliente_form.cleaned_data['documento'])
@@ -413,11 +807,17 @@ def _handle_enviar(request, cliente_form, nota_form):
                 return JsonResponse({'success': False, 'errors': [error_msg]})
             else:
                 messages.error(request, error_msg)
+                try:
+                    config = ConfiguracaoSistema.objects.first()
+                    whatsapp_numero = config.whatsapp_numero if config else None
+                except Exception:
+                    whatsapp_numero = None
                 return render(request, 'devolucao.html', {
                     'cliente_form': cliente_form,
                     'nota_form':    nota_form,
                     'dev_form':     DevolucaoForm(),
                     'produtos':     produtos,
+                    'whatsapp_numero': whatsapp_numero,
                 })
 
         erros_foto = []
@@ -433,11 +833,17 @@ def _handle_enviar(request, cliente_form, nota_form):
             else:
                 for msg in erros_foto:
                     messages.error(request, msg)
+                try:
+                    config = ConfiguracaoSistema.objects.first()
+                    whatsapp_numero = config.whatsapp_numero if config else None
+                except Exception:
+                    whatsapp_numero = None
                 return render(request, 'devolucao.html', {
                     'cliente_form': cliente_form,
                     'nota_form':    nota_form,
                     'dev_form':     DevolucaoForm(),
                     'produtos':     produtos,
+                    'whatsapp_numero': whatsapp_numero,
                 })
 
         with transaction.atomic():
@@ -513,11 +919,17 @@ def _handle_enviar(request, cliente_form, nota_form):
             return JsonResponse({'success': False, 'errors': [str(exc)]})
         else:
             messages.error(request, str(exc))
+            try:
+                config = ConfiguracaoSistema.objects.first()
+                whatsapp_numero = config.whatsapp_numero if config else None
+            except Exception:
+                whatsapp_numero = None
             return render(request, 'devolucao.html', {
                 'cliente_form': cliente_form,
                 'nota_form':    nota_form,
                 'dev_form':     DevolucaoForm(),
                 'produtos':     produtos if 'produtos' in locals() else [],
+                'whatsapp_numero': whatsapp_numero,
             })
 
     logger.info(f"Devolução #{devolucao.pk} criada com sucesso por {request.user.email}")
@@ -527,6 +939,204 @@ def _handle_enviar(request, cliente_form, nota_form):
         return JsonResponse({'success': True, 'redirect_url': reverse('acompanhar_devolucoes')})
     else:
         return redirect('tela_devolucao')
+
+
+def _handle_enviar_novo(request, dev_form):
+    """
+    Handler nova para enviar devolução usando DevolucaoClienteForm.
+
+    Fluxo:
+    1. Valida DevolucaoClienteForm (cliente_vinculado, numero_nota, etc)
+    2. Busca ClienteVinculado para verificar acesso
+    3. Retrieve NotaFiscal do cliente
+    4. Valida status (prazo, itens, etc)
+    5. Cria Devolucao + ItemDevolucao
+
+    Segurança:
+    - Valida que cliente_vinculado pertence ao usuário logado
+    - Valida que NotaFiscal pertence ao cliente selecionado
+    - Rejeita se prazo expirado
+    """
+    try:
+        logger.info("Iniciando _handle_enviar_novo (nova API)")
+
+        produtos_json = request.POST.get('produtos_json', '[]')
+        produtos = json.loads(produtos_json)
+
+        if not produtos:
+            if _is_ajax_request(request):
+                return JsonResponse({'success': False, 'errors': ['Adicione pelo menos um produto antes de enviar.']})
+            else:
+                messages.error(request, 'Adicione pelo menos um produto antes de enviar.')
+                return redirect('tela_devolucao')
+
+        if not dev_form.is_valid():
+            errors = []
+            for field, field_errors in dev_form.errors.items():
+                errors.extend(field_errors)
+
+            if _is_ajax_request(request):
+                return JsonResponse({'success': False, 'errors': errors})
+            else:
+                for err in errors:
+                    messages.error(request, err)
+                return redirect('tela_devolucao')
+
+        cliente_vinculado_id = dev_form.cleaned_data['cliente_vinculado'].id
+        numero_nota = dev_form.cleaned_data['numero_nota']
+
+        # Verify that cliente_vinculado belongs to current user
+        try:
+            cliente_vinculado = ClienteVinculado.objects.get(
+                id=cliente_vinculado_id,
+                usuario=request.user,
+                ativo=True
+            )
+        except ClienteVinculado.DoesNotExist:
+            error_msg = 'Empresa ou pessoa selecionada não é válida para esta conta.'
+            if _is_ajax_request(request):
+                return JsonResponse({'success': False, 'errors': [error_msg]}, status=403)
+            else:
+                messages.error(request, error_msg)
+                return redirect('tela_devolucao')
+
+        cliente = cliente_vinculado.cliente
+
+        # Verify client can create devolutions
+        if not cliente.tem_permissao('criar'):
+            error_msg = '⛔ Você não tem permissão para criar devoluções.'
+            if _is_ajax_request(request):
+                return JsonResponse({'success': False, 'errors': [error_msg]}, status=403)
+            else:
+                messages.error(request, error_msg)
+                return redirect('acompanhar_devolucoes')
+
+        try:
+            nota = NotaFiscal.objects.get(numero_nota=numero_nota, cliente=cliente)
+        except NotaFiscal.DoesNotExist:
+            error_msg = f'Nota fiscal {numero_nota} não encontrada para esta empresa/pessoa.'
+            if _is_ajax_request(request):
+                return JsonResponse({'success': False, 'errors': [error_msg]})
+            else:
+                messages.error(request, error_msg)
+                return redirect('tela_devolucao')
+
+        # Attach PDF if provided
+        pdf_file = dev_form.cleaned_data.get('arquivo_pdf')
+        if pdf_file:
+            nota.arquivo_pdf = pdf_file
+            nota.save(update_fields=['arquivo_pdf'])
+
+        # Check expiration
+        expirado, _ = _checar_prazo(nota)
+        if expirado:
+            prazo = ConfiguracaoSistema.prazo()
+            error_msg = f'O prazo de devolução da nota {numero_nota} expirou ({prazo} dias após emissão).'
+            if _is_ajax_request(request):
+                return JsonResponse({'success': False, 'errors': [error_msg]})
+            else:
+                messages.error(request, error_msg)
+                return redirect('tela_devolucao')
+
+        # Validate product photos
+        erros_foto = []
+        for prod in produtos:
+            foto_file = request.FILES.get(f'foto_produto_{prod["produto_id"]}')
+            if foto_file and foto_file.size > FOTO_MAX_BYTES:
+                erros_foto.append(
+                    f'Foto de "{prod.get("descricao", prod["produto_id"])}" excede 2 MB.'
+                )
+        if erros_foto:
+            if _is_ajax_request(request):
+                return JsonResponse({'success': False, 'errors': erros_foto})
+            else:
+                for msg in erros_foto:
+                    messages.error(request, msg)
+                return redirect('tela_devolucao')
+
+        # Create devolução transaction
+        with transaction.atomic():
+            erros = []
+
+            ids_produtos = [p['produto_id'] for p in produtos]
+            produtos_map = {
+                str(obj.pk): obj
+                for obj in Produto.objects.select_for_update().filter(id__in=ids_produtos)
+            }
+
+            # Validate all products and quantities
+            for prod in produtos:
+                produto_obj = produtos_map.get(str(prod['produto_id']))
+                if not produto_obj:
+                    erros.append(f'Produto ID {prod["produto_id"]} não encontrado.')
+                    continue
+
+                item_nota = ItemNotaFiscal.objects.filter(
+                    nota_fiscal=nota, produto=produto_obj
+                ).first()
+                if not item_nota:
+                    erros.append(
+                        f'O produto "{produto_obj.descricao}" não pertence à nota {numero_nota}.'
+                    )
+                    continue
+
+                ja_devolvido = (
+                    ItemDevolucao.objects
+                    .filter(devolucao__nota_fiscal=nota, produto=produto_obj)
+                    .aggregate(total=Sum('quantidade_devolvida'))['total']
+                ) or 0
+
+                disponivel = item_nota.quantidade - ja_devolvido
+                if prod['quantidade'] > disponivel:
+                    erros.append(
+                        f'"{produto_obj.descricao}": solicitado {prod["quantidade"]} un., '
+                        f'saldo disponível: {disponivel} un.'
+                    )
+
+            if erros:
+                raise ValueError('\n'.join(erros))
+
+            # Create devolução
+            devolucao = Devolucao.objects.create(
+                nota_fiscal=nota,
+                cliente=cliente,
+                usuario_criador=request.user
+            )
+
+            # Create item devoluções
+            for prod in produtos:
+                produto_obj = produtos_map.get(str(prod['produto_id']))
+
+                motivo = prod.get('motivo', '')
+                if motivo and motivo not in MOTIVOS_VALIDOS:
+                    motivo = ''
+
+                foto_file = request.FILES.get(f'foto_produto_{prod["produto_id"]}')
+                ItemDevolucao.objects.create(
+                    devolucao=devolucao,
+                    produto=produto_obj,
+                    quantidade_devolvida=prod['quantidade'],
+                    motivo=motivo,
+                    observacao=prod.get('observacao', ''),
+                    foto=foto_file,
+                )
+
+    except Exception as exc:
+        logger.error(f"Erro em _handle_enviar_novo: {exc}", exc_info=True)
+        error_msg = str(exc)
+        if _is_ajax_request(request):
+            return JsonResponse({'success': False, 'errors': [error_msg]})
+        else:
+            messages.error(request, error_msg)
+            return redirect('tela_devolucao')
+
+    logger.info(f"Devolução #{devolucao.pk} criada com sucesso por {request.user.email} usando nova API")
+    messages.success(request, f'Devolução #{devolucao.pk} registrada com sucesso!')
+
+    if _is_ajax_request(request):
+        return JsonResponse({'success': True, 'redirect_url': reverse('acompanhar_devolucoes')})
+    else:
+        return redirect('acompanhar_devolucoes')
 
 
 def _handle_carregar_pdf(request):
@@ -551,12 +1161,20 @@ def _handle_carregar_pdf(request):
     })
     nota_form = NotaForm(data={'numero_nota': dados['numero_nota']})
 
+    # Obter número de WhatsApp
+    try:
+        config = ConfiguracaoSistema.objects.first()
+        whatsapp_numero = config.whatsapp_numero if config else None
+    except Exception:
+        whatsapp_numero = None
+
     messages.success(request, 'PDF carregado com sucesso.')
     return render(request, 'devolucao.html', {
         'cliente_form': cliente_form,
         'nota_form':    nota_form,
         'dev_form':     DevolucaoForm(),
         'produtos':     dados['produtos'],
+        'whatsapp_numero': whatsapp_numero,
     })
 
 
@@ -764,7 +1382,6 @@ def acompanhar_devolucoes(request):
                 'tipo_cliente': dev.cliente.tipo          if dev.cliente else '',
                 'data_criacao': dev.data_criacao.strftime('%d/%m/%Y'),
                 'obs_geral':    dev.observacao_geral or '',
-                # Permissões por devolução: só pode editar/deletar se pendente E cliente tem permissão
                 'pode_editar':  dev.cliente_pode_editar() and cliente.tem_permissao('editar'),
                 'pode_deletar': dev.cliente_pode_editar() and cliente.tem_permissao('deletar'),
                 'itens': [
@@ -785,7 +1402,7 @@ def acompanhar_devolucoes(request):
         cls=DjangoJSONEncoder,
     )
 
-    return render(request, 'acompanhar_devolucoes.html', {
+    context = {
         'devolucoes':        devolucoes,
         'contagens':         contagens,
         'devolucoes_json':   devolucoes_json,
@@ -797,7 +1414,16 @@ def acompanhar_devolucoes(request):
             'pode_editar':     cliente.tem_permissao('editar'),
             'pode_deletar':    cliente.tem_permissao('deletar'),
         },
-    })
+    }
+
+    try:
+        config = ConfiguracaoSistema.objects.first()
+        if config and config.whatsapp_numero:
+            context['whatsapp_numero'] = config.whatsapp_numero
+    except Exception:
+        pass
+
+    return render(request, 'acompanhar_devolucoes.html', context)
 
 
 # ════════════════════════════════════════════════════════
@@ -854,11 +1480,17 @@ def painel_admin(request):
         cls=DjangoJSONEncoder,
     )
 
+    try:
+        config = ConfiguracaoSistema.objects.first()
+    except Exception:
+        config = None
+
     return render(request, 'Painel_admin.html', {
         'devolucoes':            devolucoes,
         'contagens':             contagens,
         'devolucoes_json':       devolucoes_json,
         'pode_gerenciar_admins': request.user.is_superuser or request.user.has_perm('devolucao.pode_gerenciar_usuarios'),
+        'configuracao':          config,
     })
 
 
@@ -895,6 +1527,45 @@ def atualizar_status_devolucao(request, devolucao_id):
 
 
 # ════════════════════════════════════════════════════════
+# Configurações do Sistema
+# ════════════════════════════════════════════════════════
+
+@require_POST
+@admin_required
+def salvar_configuracoes(request):
+    """AJAX — salva as configurações do sistema (WhatsApp, prazos, etc)."""
+    try:
+        whatsapp_numero = request.POST.get('whatsapp_numero', '').strip()
+
+        if whatsapp_numero and not any(c.isdigit() for c in whatsapp_numero):
+            return JsonResponse({
+                'success': False,
+                'error': 'Número de WhatsApp inválido.'
+            }, status=400)
+
+        config, _ = ConfiguracaoSistema.objects.get_or_create(pk=1)
+        if whatsapp_numero:
+            config.whatsapp_numero = whatsapp_numero
+        else:
+            config.whatsapp_numero = ''
+        config.save()
+
+        logger.info(f"Configuração de WhatsApp atualizada: {whatsapp_numero} por {request.user.email}")
+
+        return JsonResponse({
+            'success': True,
+            'message': 'Configurações salvas com sucesso!',
+            'whatsapp_numero': config.whatsapp_numero or '',
+        })
+    except Exception as e:
+        logger.error(f"Erro ao salvar configurações: {str(e)}")
+        return JsonResponse({
+            'success': False,
+            'error': f'Erro ao salvar: {str(e)}'
+        }, status=500)
+
+
+# ════════════════════════════════════════════════════════
 # Gestão de Usuários (Clientes + Administradores)
 # ════════════════════════════════════════════════════════
 
@@ -921,7 +1592,6 @@ def _perms_cliente_from_post(request):
     for perm in ['criar', 'visualizar', 'editar', 'deletar']:
         if request.POST.get(f'perm_{perm}'):
             perms_selecionadas.append(perm)
-    # Garante ao menos 'visualizar' para não travar o acesso completamente
     return ','.join(perms_selecionadas) if perms_selecionadas else 'visualizar'
 
 
@@ -1082,7 +1752,6 @@ def _handle_usuario_criar(request, tipo_usuario):
         if tipo_usuario == 'cliente':
             tipo_pessoa = cliente_data.get('tipo', 'PF')
 
-            # ── Permissões do cliente vindas dos checkboxes ──────────
             permissoes_str = _perms_cliente_from_post(request)
 
             cliente_kwargs = dict(
@@ -1124,7 +1793,6 @@ def usuario_editar(request, usuario_id):
     from .models import Usuario
     usuario_editado = get_object_or_404(Usuario, pk=usuario_id)
 
-    # Validação de hierarquia: Super Admin só pode ser editado por Super Admin
     if usuario_editado.is_superuser and not request.user.is_superuser:
         messages.error(
             request,
@@ -1138,7 +1806,6 @@ def usuario_editar(request, usuario_id):
 
     tipo_usuario = 'admin' if usuario_editado.is_staff else 'cliente'
 
-    # Tenta carregar dados do cliente vinculado
     try:
         cliente_obj = usuario_editado.cliente
         cliente_data = {
@@ -1157,7 +1824,6 @@ def usuario_editar(request, usuario_id):
             'cidade':                cliente_obj.cidade        or '',
             'estado':                cliente_obj.estado        or '',
             'cep':                   cliente_obj.cep           or '',
-            # ── Permissões do cliente passadas ao template ──────────
             'permissoes_devolucao':  cliente_obj.permissoes_devolucao or 'criar,visualizar,editar,deletar',
         }
     except Exception:
@@ -1263,9 +1929,7 @@ def _handle_usuario_editar(request, usuario_editado, tipo_usuario, cliente_obj, 
             else:
                 cliente_obj.razao_social = cliente_data.get('razao_social', '')
 
-            # ── Salva permissões do cliente vindas dos checkboxes ────
             cliente_obj.permissoes_devolucao = _perms_cliente_from_post(request)
-
             cliente_obj.save(skip_validation=True)
 
     logger.info(f"Usuário editado: {usuario_editado.email} por {request.user.email}")
@@ -1280,21 +1944,18 @@ def usuario_excluir(request, usuario_id):
     from .models import Usuario
     usuario_alvo = get_object_or_404(Usuario, pk=usuario_id)
 
-    # Validação 1: não permitir auto-exclusão
     if usuario_alvo.pk == request.user.pk:
         return JsonResponse(
             {'success': False, 'error': 'Você não pode excluir a si mesmo.'},
             status=400
         )
 
-    # Validação 2: Super Admin só pode ser excluído por Super Admin
     if usuario_alvo.is_superuser and not request.user.is_superuser:
         return JsonResponse(
             {'success': False, 'error': 'Apenas Super Administradores podem excluir outros Super Administradores.'},
             status=403
         )
 
-    # Validação 3: não permitir exclusão do último Super Admin
     if usuario_alvo.is_superuser:
         super_admin_count = Usuario.objects.filter(is_superuser=True).count()
         if super_admin_count <= 1:
@@ -1308,6 +1969,169 @@ def usuario_excluir(request, usuario_id):
     usuario_alvo.delete()
     logger.info(f"Usuário excluído: {nome} (tipo={tipo}) por {request.user.email}")
     return JsonResponse({'success': True, 'nome': nome})
+
+
+# ════════════════════════════════════════════════════════
+# NOVO: Gerenciar clientes vinculados (AJAX)
+# ════════════════════════════════════════════════════════
+
+@admin_required
+@require_GET
+def ajax_listar_clientes_vinculados(request, usuario_id):
+    """Lista clientes vinculados a um usuário (para admin panel)."""
+    from .models import Usuario
+    
+    if not request.user.is_superuser:
+        return JsonResponse({'success': False, 'error': 'Acesso negado'}, status=403)
+    
+    usuario = get_object_or_404(Usuario, pk=usuario_id)
+    
+    clientes_vinculados = usuario.clientes_vinculados.select_related('cliente').all()
+    
+    dados = []
+    for cv in clientes_vinculados:
+        c = cv.cliente
+        dados.append({
+            'cliente_vinculado_id': cv.id,
+            'cliente_id': c.id,
+            'nome_exibicao': c.nome_exibicao,
+            'documento': c.documento,
+            'tipo': c.tipo,
+            'ativo': cv.ativo,
+            'data_vinculacao': cv.data_vinculacao.strftime('%d/%m/%Y %H:%M') if cv.data_vinculacao else '',
+        })
+    
+    logger.info(f"Clientes vinculados do usuário {usuario_id}: {len(dados)}")
+    return JsonResponse({'success': True, 'clientes': dados})
+
+
+@admin_required
+@require_GET
+def ajax_listar_clientes_disponiveis(request, usuario_id):
+    """Lista clientes disponíveis para vincular (não ainda vinculados)."""
+    from .models import Usuario
+    from django.db.models import Q
+    
+    if not request.user.is_superuser:
+        return JsonResponse({'success': False, 'error': 'Acesso negado'}, status=403)
+    
+    usuario = get_object_or_404(Usuario, pk=usuario_id)
+    termo = request.GET.get('termo', '').strip()
+    
+    # Clientes já vinculados a este usuário
+    ja_vinculados = usuario.clientes_vinculados.values_list('cliente_id', flat=True)
+    
+    # Buscar clientes disponíveis (não vinculados)
+    clientes_disponiveis = Cliente.objects.exclude(id__in=ja_vinculados)
+    
+    if termo:
+        clientes_disponiveis = clientes_disponiveis.filter(
+            Q(nome__icontains=termo) |
+            Q(razao_social__icontains=termo) |
+            Q(cpf__icontains=termo) |
+            Q(cnpj__icontains=termo)
+        )
+    
+    clientes_disponiveis = clientes_disponiveis[:20]  # Limite de 20 resultados
+    
+    dados = [
+        {
+            'cliente_id': c.id,
+            'nome_exibicao': c.nome_exibicao,
+            'documento': c.documento,
+            'tipo': c.tipo,
+        }
+        for c in clientes_disponiveis
+    ]
+    
+    logger.info(f"Clientes disponíveis para usuário {usuario_id} (termo='{termo}'): {len(dados)}")
+    return JsonResponse({'success': True, 'clientes': dados})
+
+
+@admin_required
+@require_POST
+def ajax_vincular_cliente(request, usuario_id):
+    """Vincula um cliente a um usuário."""
+    from .models import Usuario, ClienteVinculado
+    
+    if not request.user.is_superuser:
+        return JsonResponse({'success': False, 'error': 'Acesso negado'}, status=403)
+    
+    usuario = get_object_or_404(Usuario, pk=usuario_id)
+    
+    try:
+        data = json.loads(request.body)
+        cliente_id = data.get('cliente_id')
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'JSON inválido'}, status=400)
+    
+    if not cliente_id:
+        return JsonResponse({'success': False, 'error': 'cliente_id é obrigatório'}, status=400)
+    
+    cliente = get_object_or_404(Cliente, pk=cliente_id)
+    
+    # Verificar se já está vinculado
+    if usuario.clientes_vinculados.filter(cliente=cliente).exists():
+        return JsonResponse({'success': False, 'error': 'Este cliente já está vinculado'}, status=400)
+    
+    # Criar vinculação
+    cv = ClienteVinculado.objects.create(usuario=usuario, cliente=cliente, ativo=True)
+    
+    logger.info(f"Cliente {cliente.id} vinculado ao usuário {usuario_id} por {request.user.email}")
+    
+    return JsonResponse({
+        'success': True,
+        'cliente_vinculado': {
+            'cliente_vinculado_id': cv.id,
+            'cliente_id': cliente.id,
+            'nome_exibicao': cliente.nome_exibicao,
+            'documento': cliente.documento,
+            'tipo': cliente.tipo,
+            'ativo': cv.ativo,
+            'data_vinculacao': cv.data_vinculacao.strftime('%d/%m/%Y %H:%M'),
+        }
+    })
+
+
+@admin_required
+@require_POST
+def ajax_desvinculador_cliente(request, usuario_id, cliente_vinculado_id):
+    """Remove vinculação de um cliente."""
+    from .models import Usuario, ClienteVinculado
+    
+    if not request.user.is_superuser:
+        return JsonResponse({'success': False, 'error': 'Acesso negado'}, status=403)
+    
+    usuario = get_object_or_404(Usuario, pk=usuario_id)
+    cv = get_object_or_404(ClienteVinculado, pk=cliente_vinculado_id, usuario=usuario)
+    
+    cliente_nome = cv.cliente.nome_exibicao
+    cv.delete()
+    
+    logger.info(f"Cliente {cv.cliente.id} desvinculado do usuário {usuario_id} por {request.user.email}")
+    
+    return JsonResponse({'success': True, 'mensagem': f'Cliente \"{cliente_nome}\" removido'})
+
+
+@admin_required
+@require_POST
+def ajax_toggle_cliente_ativo(request, usuario_id, cliente_vinculado_id):
+    """Ativa/desativa um cliente vinculado."""
+    from .models import Usuario, ClienteVinculado
+    
+    if not request.user.is_superuser:
+        return JsonResponse({'success': False, 'error': 'Acesso negado'}, status=403)
+    
+    usuario = get_object_or_404(Usuario, pk=usuario_id)
+    cv = get_object_or_404(ClienteVinculado, pk=cliente_vinculado_id, usuario=usuario)
+    
+    cv.ativo = not cv.ativo
+    cv.save()
+    
+    estado = 'ativado' if cv.ativo else 'desativado'
+    logger.info(f"Cliente {cv.cliente.id} {estado} para usuário {usuario_id} por {request.user.email}")
+    
+    return JsonResponse({'success': True, 'ativo': cv.ativo, 'mensagem': f'Cliente {estado}'})
 
 
 # ════════════════════════════════════════════════════════
@@ -1536,4 +2360,209 @@ def importar_erp(request):
         })
     except Exception as e:
         logger.error(f'Erro ao importar nota do ERP: {e}', exc_info=True)
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+# ════════════════════════════════════════════════════════
+# Busca Avançada
+# ════════════════════════════════════════════════════════
+
+@admin_required
+def busca_avancada(request):
+    """Página de busca avançada de devoluções com múltiplos filtros."""
+    form = BuscaAvancadaForm(request.GET or None)
+    devolucoes = None
+
+    if form.is_valid() and any(form.cleaned_data.values()):
+        qs = (
+            Devolucao.objects
+            .select_related('nota_fiscal', 'cliente')
+            .prefetch_related('itens__produto')
+            .order_by('-data_criacao')
+        )
+
+        if form.cleaned_data.get('numero_nota'):
+            qs = qs.filter(nota_fiscal__numero_nota__icontains=form.cleaned_data['numero_nota'])
+
+        if form.cleaned_data.get('numero_devolucao'):
+            qs = qs.filter(pk=form.cleaned_data['numero_devolucao'])
+
+        if form.cleaned_data.get('email_cliente'):
+            qs = qs.filter(cliente__usuario__email__icontains=form.cleaned_data['email_cliente'])
+
+        if form.cleaned_data.get('status'):
+            qs = qs.filter(status=form.cleaned_data['status'])
+
+        if form.cleaned_data.get('motivo'):
+            qs = qs.filter(itens__motivo=form.cleaned_data['motivo']).distinct()
+
+        if form.cleaned_data.get('data_inicio'):
+            qs = qs.filter(data_criacao__date__gte=form.cleaned_data['data_inicio'])
+
+        if form.cleaned_data.get('data_fim'):
+            qs = qs.filter(data_criacao__date__lte=form.cleaned_data['data_fim'])
+
+        devolucoes = qs[:100]
+
+    return render(request, 'busca_avancada.html', {
+        'form': form,
+        'devolucoes': devolucoes,
+        'total_resultados': len(devolucoes) if devolucoes else 0,
+    })
+
+
+@require_POST
+@admin_required
+def busca_avancada_ajax(request):
+    """AJAX para busca avançada sem recarregar página."""
+    try:
+        form = BuscaAvancadaForm(json.loads(request.body))
+        if form.is_valid():
+            qs = (
+                Devolucao.objects
+                .select_related('nota_fiscal', 'cliente')
+                .order_by('-data_criacao')
+            )
+
+            if form.cleaned_data.get('numero_nota'):
+                qs = qs.filter(nota_fiscal__numero_nota__icontains=form.cleaned_data['numero_nota'])
+            if form.cleaned_data.get('status'):
+                qs = qs.filter(status=form.cleaned_data['status'])
+
+            resultados = [
+                {
+                    'id': dev.pk,
+                    'numero_nota': dev.nota_fiscal.numero_nota or '',
+                    'cliente': dev.cliente.nome_exibicao if dev.cliente else '',
+                    'status': dev.get_status_display(),
+                    'data': dev.data_criacao.strftime('%d/%m/%Y'),
+                }
+                for dev in qs[:50]
+            ]
+
+            return JsonResponse({'success': True, 'resultados': resultados})
+        else:
+            return JsonResponse({'success': False, 'errors': form.errors}, status=400)
+    except Exception as e:
+        logger.error(f'Erro em busca_avancada_ajax: {e}', exc_info=True)
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+# ════════════════════════════════════════════════════════
+# Chat Simples
+# ════════════════════════════════════════════════════════
+
+@login_required
+def chat_view(request, devolucao_id):
+    """Exibe chat de mensagens para uma devolução específica."""
+    devolucao = get_object_or_404(Devolucao, pk=devolucao_id)
+
+    try:
+        cliente = request.user.cliente
+        if devolucao.cliente_id != cliente.id and not request.user.is_staff:
+            return redirect('acompanhar_devolucoes')
+    except Exception:
+        if not request.user.is_staff:
+            return redirect('login')
+
+    mensagens = (
+        MensagemChat.objects
+        .filter(devolucao=devolucao)
+        .select_related('usuario')
+        .order_by('criado_em')
+    )
+
+    MensagemChat.objects.filter(devolucao=devolucao).exclude(usuario=request.user).update(lido=True)
+
+    return render(request, 'chat.html', {
+        'devolucao': devolucao,
+        'mensagens': mensagens,
+    })
+
+
+@require_POST
+@login_required
+def enviar_mensagem(request, devolucao_id):
+    """AJAX — envia nova mensagem ao chat."""
+    devolucao = get_object_or_404(Devolucao, pk=devolucao_id)
+
+    try:
+        cliente = request.user.cliente
+        if devolucao.cliente_id != cliente.id and not request.user.is_staff:
+            return JsonResponse({'success': False, 'error': 'Acesso negado'}, status=403)
+    except Exception:
+        if not request.user.is_staff:
+            return JsonResponse({'success': False, 'error': 'Não autorizado'}, status=401)
+
+    try:
+        body = json.loads(request.body)
+        texto = body.get('texto', '').strip()
+
+        if not texto:
+            return JsonResponse({'success': False, 'error': 'Mensagem vazia'}, status=400)
+
+        if len(texto) > 1000:
+            return JsonResponse({'success': False, 'error': 'Mensagem muito longa (máx 1000 caracteres)'}, status=400)
+
+        mensagem = MensagemChat.objects.create(
+            usuario=request.user,
+            devolucao=devolucao,
+            texto=texto,
+        )
+
+        logger.info(f'Mensagem chat criada na devolução #{devolucao_id} por {request.user.email}')
+
+        return JsonResponse({
+            'success': True,
+            'mensagem_id': mensagem.pk,
+            'texto': mensagem.texto,
+            'usuario': request.user.email,
+            'criado_em': mensagem.criado_em.strftime('%H:%M'),
+        })
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'JSON inválido'}, status=400)
+    except Exception as e:
+        logger.error(f'Erro ao enviar mensagem chat: {e}', exc_info=True)
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@require_GET
+@login_required
+def carregar_mensagens(request, devolucao_id):
+    """AJAX — carrega histórico de mensagens para polling."""
+    devolucao = get_object_or_404(Devolucao, pk=devolucao_id)
+
+    try:
+        cliente = request.user.cliente
+        if devolucao.cliente_id != cliente.id and not request.user.is_staff:
+            return JsonResponse({'success': False, 'error': 'Acesso negado'}, status=403)
+    except Exception:
+        if not request.user.is_staff:
+            return JsonResponse({'success': False, 'error': 'Não autorizado'}, status=401)
+
+    try:
+        depois_de = request.GET.get('depois_de', None)
+        mensagens_qs = MensagemChat.objects.filter(devolucao=devolucao).select_related('usuario').order_by('criado_em')
+
+        if depois_de:
+            mensagens_qs = mensagens_qs.filter(pk__gt=depois_de)
+
+        mensagens = [
+            {
+                'id': msg.pk,
+                'usuario': msg.usuario.email,
+                'texto': msg.texto,
+                'criado_em': msg.criado_em.strftime('%H:%M'),
+                'eh_seu': msg.usuario_id == request.user.id,
+            }
+            for msg in mensagens_qs
+        ]
+
+        return JsonResponse({
+            'success': True,
+            'mensagens': mensagens,
+            'total': len(mensagens),
+        })
+    except Exception as e:
+        logger.error(f'Erro ao carregar mensagens chat: {e}', exc_info=True)
         return JsonResponse({'success': False, 'error': str(e)}, status=500)

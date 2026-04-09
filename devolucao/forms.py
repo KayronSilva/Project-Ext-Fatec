@@ -3,7 +3,7 @@ from django import forms
 from django.contrib.auth import authenticate
 from django.core.exceptions import ValidationError
 
-from .models import Usuario, Cliente, ItemDevolucao, validar_cpf, validar_cnpj
+from .models import Usuario, Cliente, ItemDevolucao, ClienteVinculado, validar_cpf, validar_cnpj
 
 PDF_MAX_BYTES = 5 * 1024 * 1024   # 5 MB
 
@@ -210,6 +210,104 @@ class ClienteForm(forms.Form):
 
 
 # ════════════════════════════════════════════════════════
+# Formulário de devolução do cliente (NOVO - com dropdown)
+# ════════════════════════════════════════════════════════
+
+class DevolucaoClienteForm(forms.Form):
+    """
+    Formulário simplificado para cliente fazer devolução.
+    
+    Substitui ClienteForm + NotaForm + DevolucaoForm na área de cliente.
+    
+    Mudanças:
+    - Dropdown de empresa/pessoa (ClienteVinculado) em vez de digitar CPF/CNPJ
+    - Apenas campos essenciais de devolução
+    - Segurança: valida que o cliente_vinculado pertence ao usuário logado
+    """
+    
+    cliente_vinculado = forms.ModelChoiceField(
+        queryset=ClienteVinculado.objects.none(),  # Será definido no __init__
+        widget=forms.Select(attrs={
+            'id': 'id_cliente_vinculado',
+            'class': 'form-control',
+        }),
+        label='Empresa / Pessoa',
+        help_text='Selecione a empresa ou pessoa para a qual está fazendo a devolução',
+        error_messages={
+            'required': 'Selecione uma empresa ou pessoa.',
+            'invalid_choice': 'Empresa ou pessoa selecionada não é válida para esta conta.',
+        }
+    )
+    
+    numero_nota = forms.CharField(
+        max_length=50,
+        widget=forms.TextInput(attrs={
+            'placeholder': 'Digite o número da nota',
+            'id': 'id_numero_nota',
+            'class': 'form-control',
+        }),
+        label='Número da Nota Fiscal',
+        error_messages={'required': 'Número da nota é obrigatório.'}
+    )
+    
+    arquivo_pdf = forms.FileField(
+        required=False,
+        label='Anexar PDF (opcional)',
+        widget=forms.FileInput(attrs={
+            'id': 'id_arquivo_pdf',
+            'class': 'form-control',
+            'accept': 'application/pdf',
+        })
+    )
+
+    def __init__(self, data=None, files=None, usuario=None, *args, **kwargs):
+        """
+        Inicializa o formulário.
+        
+        Args:
+            data: Dados do formulário (request.POST)
+            files: Arquivos do formulário (request.FILES)
+            usuario: Usuario logado. Usado para filtrar ClienteVinculado.
+        """
+        super().__init__(data=data, files=files, *args, **kwargs)
+        
+        if usuario:
+            # Filtra ClienteVinculado apenas do usuário logado
+            # Só mostra clientes ativos
+            clientes_queryset = (
+                usuario.clientes_vinculados
+                .filter(ativo=True)
+                .select_related('cliente')
+            )
+            self.fields['cliente_vinculado'].queryset = clientes_queryset
+            ordered_clientes = sorted(
+                clientes_queryset,
+                key=lambda cv: cv.cliente.nome_exibicao
+            )
+            self.fields['cliente_vinculado'].choices = [
+                ('', '--- Selecione uma empresa / pessoa ---')
+            ] + [
+                (cliente.pk, cliente.cliente.nome_exibicao)
+                for cliente in ordered_clientes
+            ]
+        else:
+            self.fields['cliente_vinculado'].queryset = ClienteVinculado.objects.none()
+            self.fields['cliente_vinculado'].choices = [
+                ('', '--- Selecione uma empresa / pessoa ---')
+            ]
+
+        # Customiza texto do dropdown
+        self.fields['cliente_vinculado'].empty_label = '--- Selecione uma empresa / pessoa ---'
+
+    def clean_arquivo_pdf(self):
+        """Valida tamanho do PDF."""
+        f = self.cleaned_data.get('arquivo_pdf')
+        if f and f.size > PDF_MAX_BYTES:
+            raise forms.ValidationError('O PDF não pode exceder 5 MB.')
+        return f
+
+
+# ════════════════════════════════════════════════════════
 # Formulário de nota fiscal
 # ════════════════════════════════════════════════════════
 
@@ -248,3 +346,69 @@ class DevolucaoForm(forms.ModelForm):
                 attrs={'placeholder': 'Descreva o motivo, se necessário.'}
             ),
         }
+
+
+# ════════════════════════════════════════════════════════
+# Busca Avançada (NEW)
+# ════════════════════════════════════════════════════════
+
+class BuscaAvancadaForm(forms.Form):
+    """Formulário de busca avançada com múltiplos filtros para devoluções."""
+    
+    STATUS_CHOICES = [('', '--- Todos os status ---')] + [
+        ('pendente', 'Pendente'),
+        ('em_processo', 'Em Processo'),
+        ('concluido', 'Concluído'),
+        ('recusada', 'Recusada'),
+    ]
+    
+    MOTIVO_CHOICES = [('', '--- Todos os motivos ---')] + [
+        ('produto_danificado', 'Produto danificado'),
+        ('erro_pedido', 'Erro no pedido'),
+        ('prazo_vencido', 'Prazo vencido'),
+        ('outro', 'Outro'),
+    ]
+    
+    # Campos de busca
+    numero_nota = forms.CharField(
+        max_length=50,
+        required=False,
+        widget=forms.TextInput(attrs={'placeholder': 'Número da nota fiscal', 'class': 'form-control'}),
+        label='Nota Fiscal'
+    )
+    
+    numero_devolucao = forms.IntegerField(
+        required=False,
+        widget=forms.NumberInput(attrs={'placeholder': 'ID da devolução', 'class': 'form-control'}),
+        label='ID Devolução'
+    )
+    
+    email_cliente = forms.EmailField(
+        required=False,
+        widget=forms.EmailInput(attrs={'placeholder': 'Email do cliente', 'class': 'form-control'}),
+        label='Email do Cliente'
+    )
+    
+    status = forms.ChoiceField(
+        choices=STATUS_CHOICES,
+        required=False,
+        widget=forms.Select(attrs={'class': 'form-control'})
+    )
+    
+    motivo = forms.ChoiceField(
+        choices=MOTIVO_CHOICES,
+        required=False,
+        widget=forms.Select(attrs={'class': 'form-control'})
+    )
+    
+    data_inicio = forms.DateField(
+        required=False,
+        widget=forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
+        label='Data Início'
+    )
+    
+    data_fim = forms.DateField(
+        required=False,
+        widget=forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
+        label='Data Fim'
+    )

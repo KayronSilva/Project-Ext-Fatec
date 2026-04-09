@@ -23,15 +23,29 @@ from .models import Devolucao, Cliente
 def admin_required(view_func):
     """
     Garante que apenas usuários com is_staff=True acessem a view.
-    - Não autenticado       → redireciona para login de admin
-    - Autenticado sem staff → redireciona para área do cliente
+    - Não autenticado       → redireciona para login de admin (ou JSON 401 se AJAX)
+    - Autenticado sem staff → redireciona para área do cliente (ou JSON 403 se AJAX)
     """
     @wraps(view_func)
     def wrapper(request, *args, **kwargs):
+        is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+        
         if not request.user.is_authenticated:
+            if is_ajax:
+                return JsonResponse(
+                    {'error': 'Sessão expirada', 'session_expired': True},
+                    status=401
+                )
             return redirect(f'/admin-login/?next={request.path}')
+        
         if not request.user.is_staff:
+            if is_ajax:
+                return JsonResponse(
+                    {'error': 'Acesso negado'},
+                    status=403
+                )
             return redirect('acompanhar_devolucoes')
+        
         return view_func(request, *args, **kwargs)
     return wrapper
 
@@ -39,15 +53,29 @@ def admin_required(view_func):
 def cliente_required(view_func):
     """
     Garante que apenas clientes (is_staff=False) acessem a view.
-    - Não autenticado → redireciona para login de cliente
-    - Admin logado    → redireciona para painel admin
+    - Não autenticado → redireciona para login de cliente (ou JSON 401 se AJAX)
+    - Admin logado    → redireciona para painel admin (ou JSON 403 se AJAX)
     """
     @wraps(view_func)
     def wrapper(request, *args, **kwargs):
+        is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+        
         if not request.user.is_authenticated:
+            if is_ajax:
+                return JsonResponse(
+                    {'error': 'Sessão expirada', 'session_expired': True},
+                    status=401
+                )
             return redirect(f'/login/?next={request.path}')
+        
         if request.user.is_staff:
+            if is_ajax:
+                return JsonResponse(
+                    {'error': 'Acesso negado'},
+                    status=403
+                )
             return redirect('painel_admin')
+        
         return view_func(request, *args, **kwargs)
     return wrapper
 

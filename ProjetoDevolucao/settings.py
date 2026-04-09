@@ -56,7 +56,7 @@ ROOT_URLCONF = 'ProjetoDevolucao.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [BASE_DIR / 'ProjetoDevolucao' / 'templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [

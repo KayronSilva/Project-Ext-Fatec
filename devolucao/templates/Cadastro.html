@@ -1,11 +1,9 @@
+{% extends 'base.html' %}
 {% load static %}
-<!DOCTYPE html>
-<html lang="pt-br">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cadastro — Portal de Devoluções</title>
-    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+
+{% block title %}Cadastro — Portal de Devoluções{% endblock %}
+
+{% block extra_css %}
     <style>
         body { display: flex; align-items: flex-start; justify-content: center; min-height: 100vh; padding: 40px 24px; }
 
@@ -95,8 +93,9 @@
         }
         .field-err { color: var(--red-dot); font-size: 12px; margin-top: 3px; }
     </style>
-</head>
-<body>
+{% endblock %}
+
+{% block content %}
 <div class="auth-card">
     <div class="auth-logo">Portal <span>Dev</span></div>
     <p class="auth-sub">Crie sua conta para gerenciar devoluções</p>
@@ -216,6 +215,12 @@
 
     <p class="auth-footer">
         Já tem conta? <a href="{% url 'login' %}">Fazer login</a>
+        {% if whatsapp_numero %}
+        &nbsp;•&nbsp;
+        <a href="https://wa.me/{{ whatsapp_numero|cut:' '|cut:'-'|cut:'('|cut:')' }}" target="_blank" title="Fale conosco no WhatsApp">
+            💬 WhatsApp
+        </a>
+        {% endif %}
     </p>
 </div>
 
@@ -255,6 +260,6 @@
         this.value = v;
     });
 })();
-</script>
-</body>
+
+{% endblock %}
 </html>

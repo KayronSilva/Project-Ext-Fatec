@@ -1,11 +1,9 @@
+{% extends 'base.html' %}
 {% load static %}
-<!DOCTYPE html>
-<html lang="pt-br">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Painel Administrativo — Devoluções</title>
-    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+
+{% block title %}Painel Administrativo — Devoluções{% endblock %}
+
+{% block extra_css %}
     <style>
         /* ── Stats cards ─────────────────────────────────── */
         .stats-row {
@@ -154,8 +152,9 @@
             .stats-row { grid-template-columns: 1fr 1fr; }
         }
     </style>
-</head>
-<body>
+{% endblock %}
+
+{% block content %}
 <div class="page-wrapper page-wrapper--wide">
 
     <!-- ── Header ────────────────────────────────────────── -->
@@ -204,6 +203,69 @@
             <div class="stat-card__label">Recusada</div>
             <div class="stat-card__value">{{ contagens.recusada }}</div>
             <div class="stat-card__sub">não aceitas</div>
+        </div>
+    </div>
+
+    <!-- ── Card de Configurações ────────────────────────── -->
+    <div class="card" style="margin-bottom: 24px;">
+        <div style="padding: 20px 24px;">
+            <h3 style="font-size: 15px; font-weight: 700; margin-bottom: 16px; color: var(--text);">⚙ Configurações do Sistema</h3>
+            
+            <div style="display: grid; grid-template-columns: 1fr; gap: 16px;">
+                <!-- Configuração de WhatsApp -->
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+                    <label for="whatsapp-numero" style="font-size: 13px; font-weight: 600; color: var(--text-2);">Número de WhatsApp para Contato</label>
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                        <input 
+                            type="text" 
+                            id="whatsapp-numero"
+                            placeholder="Ex: +55 11 99999-9999 ou (11) 99999-9999"
+                            value="{{ configuracao.whatsapp_numero|default:'' }}"
+                            style="flex: 1; padding: 10px 14px; border: 1.5px solid var(--border); border-radius: var(--r-sm); background: var(--surface-3); color: var(--text); font-size: 13px; font-family: 'Sora', sans-serif;"
+                        >
+                        <!-- Botões modo visualização (padrão) -->
+                        <button 
+                            id="btn-salvar-whatsapp" 
+                            class="btn btn-primary"
+                            style="white-space: nowrap; padding: 10px 16px; display: {% if configuracao.whatsapp_numero %}none{% endif %};"
+                        >
+                            💾 Salvar
+                        </button>
+                        <button
+                            id="btn-editar-whatsapp"
+                            class="btn btn-ghost"
+                            style="white-space: nowrap; padding: 10px 14px; display: {% if not configuracao.whatsapp_numero %}none{% endif %};"
+                        >
+                            ✏️ Editar
+                        </button>
+                        <button
+                            id="btn-remover-whatsapp"
+                            class="btn btn-ghost"
+                            style="white-space: nowrap; padding: 10px 14px; display: {% if not configuracao.whatsapp_numero %}none{% endif %};"
+                        >
+                            🗑️ Remover
+                        </button>
+                        <!-- Botões modo edição -->
+                        <button
+                            id="btn-cancelar-whatsapp"
+                            class="btn btn-ghost"
+                            style="white-space: nowrap; padding: 10px 14px; display: none;"
+                        >
+                            ✕ Cancelar
+                        </button>
+                        <button
+                            id="btn-salvar-whatsapp-edit"
+                            class="btn btn-primary"
+                            style="white-space: nowrap; padding: 10px 16px; display: none;"
+                        >
+                            💾 Salvar
+                        </button>
+                    </div>
+                    <p style="font-size: 11px; color: var(--text-muted); margin: 0;">
+                        Este número será usado pelos clientes para iniciar uma conversa no WhatsApp
+                    </p>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -678,9 +740,133 @@
   overlay.addEventListener('click', e => { if (e.target === overlay) fecharModal(); });
   document.addEventListener('keydown', e => { if (e.key === 'Escape') fecharModal(); });
 
+  // Gerenciar configurações de WhatsApp (com estado de bloqueio/edição)
+  const inputWhatsapp = document.getElementById('whatsapp-numero');
+  const btnSalvarWhatsapp = document.getElementById('btn-salvar-whatsapp');
+  const btnEditarWhatsapp = document.getElementById('btn-editar-whatsapp');
+  const btnRemoverWhatsapp = document.getElementById('btn-remover-whatsapp');
+  const btnCancelarWhatsapp = document.getElementById('btn-cancelar-whatsapp');
+  const btnSalvarWhatsappEdit = document.getElementById('btn-salvar-whatsapp-edit');
+  
+  let valorOriginalWhatsapp = inputWhatsapp.value;
+  
+  function atualizarEstadoWhatsapp() {
+    const temValor = inputWhatsapp.value.trim().length > 0;
+    const estaDesabilitado = inputWhatsapp.disabled;
+    
+    if (estaDesabilitado && temValor) {
+      // Modo visualização (campo desabilitado, número válido)
+      btnSalvarWhatsapp.style.display = 'none';
+      btnEditarWhatsapp.style.display = 'inline-block';
+      btnRemoverWhatsapp.style.display = 'inline-block';
+      btnCancelarWhatsapp.style.display = 'none';
+      btnSalvarWhatsappEdit.style.display = 'none';
+    } else if (!estaDesabilitado) {
+      // Modo edição (campo habilitado)
+      btnSalvarWhatsapp.style.display = 'none';
+      btnEditarWhatsapp.style.display = 'none';
+      btnRemoverWhatsapp.style.display = 'none';
+      btnCancelarWhatsapp.style.display = 'inline-block';
+      btnSalvarWhatsappEdit.style.display = 'inline-block';
+    } else {
+      // Campo vazio ou novo
+      btnSalvarWhatsapp.style.display = 'inline-block';
+      btnEditarWhatsapp.style.display = 'none';
+      btnRemoverWhatsapp.style.display = 'none';
+      btnCancelarWhatsapp.style.display = 'none';
+      btnSalvarWhatsappEdit.style.display = 'none';
+    }
+  }
+
+  function entrarEdicao() {
+    valorOriginalWhatsapp = inputWhatsapp.value;
+    inputWhatsapp.disabled = false;
+    inputWhatsapp.focus();
+    atualizarEstadoWhatsapp();
+  }
+
+  function sairEdicao() {
+    inputWhatsapp.disabled = true;
+    atualizarEstadoWhatsapp();
+  }
+
+  // Botão Editar
+  btnEditarWhatsapp?.addEventListener('click', entrarEdicao);
+
+  // Botão Cancelar (volta ao valor anterior)
+  btnCancelarWhatsapp?.addEventListener('click', () => {
+    inputWhatsapp.value = valorOriginalWhatsapp;
+    sairEdicao();
+  });
+
+  // Botão Remover (limpa o valor e entra em modo edição)
+  btnRemoverWhatsapp?.addEventListener('click', () => {
+    if (confirm('Tem certeza de que deseja remover o número de WhatsApp?')) {
+      inputWhatsapp.value = '';
+      entrarEdicao();
+    }
+  });
+
+  // Botão Salvar (modo edição)
+  btnSalvarWhatsappEdit?.addEventListener('click', () => salvarWhatsapp());
+
+  // Botão Salvar (modo novo)
+  btnSalvarWhatsapp?.addEventListener('click', () => salvarWhatsapp());
+
+  function salvarWhatsapp() {
+    const whatsappNumero = inputWhatsapp.value.trim();
+    
+    if (!whatsappNumero) {
+      showToast('Por favor, insira um número de WhatsApp', 'error');
+      return;
+    }
+
+    const btn = document.activeElement; // Detecta qual botão foi clicado
+    btn.disabled = true;
+    const textoOriginal = btn.textContent;
+    btn.textContent = '⏳ Salvando...';
+
+    const formData = new FormData();
+    formData.append('whatsapp_numero', whatsappNumero);
+
+    fetch('{% url "salvar_configuracoes" %}', {
+      method: 'POST',
+      headers: {
+        'X-Requested-With': 'XMLHttpRequest',
+        'X-CSRFToken': CSRF
+      },
+      body: formData
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (data.success) {
+        showToast('✅ ' + data.message, 'success');
+        valorOriginalWhatsapp = whatsappNumero;
+        inputWhatsapp.disabled = true;
+        atualizarEstadoWhatsapp();
+      } else {
+        showToast('❌ ' + (data.error || 'Erro ao salvar'), 'error');
+      }
+    })
+    .catch(e => {
+      console.error('Erro:', e);
+      showToast('❌ Erro na requisição', 'error');
+    })
+    .finally(() => {
+      btn.disabled = false;
+      btn.textContent = textoOriginal;
+    });
+  }
+
+  // Inicializar estado
+  if (inputWhatsapp.value.trim()) {
+    inputWhatsapp.disabled = true;
+  }
+  atualizarEstadoWhatsapp();
+
   // Primeiro render
   render();
 })();
 </script>
-</body>
-</html>
+
+{% endblock %}

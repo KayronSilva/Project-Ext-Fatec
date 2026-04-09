@@ -3,6 +3,7 @@ from django.utils.html import format_html
 from .models import (
     Devolucao, ItemDevolucao, Cliente, NotaFiscal,
     Produto, ItemNotaFiscal, ConfiguracaoSistema,
+    Usuario, ClienteVinculado,
 )
 
 
@@ -13,6 +14,96 @@ from .models import (
 @admin.register(ConfiguracaoSistema)
 class ConfiguracaoSistemaAdmin(admin.ModelAdmin):
     list_display = ('prazo_devolucao_dias',)
+
+
+# ════════════════════════════════════════════════════════
+# ClienteVinculado — Vinculação multipla usuario → clientes
+# ════════════════════════════════════════════════════════
+
+class ClienteVinculadoInline(admin.TabularInline):
+    """
+    Inline para gerenciar múltiplos clientes vinculados a um usuário.
+    Permite admin vincular/desvincular clientes da conta.
+    """
+    model         = ClienteVinculado
+    extra         = 1
+    can_delete    = True
+    readonly_fields = ('data_vinculacao', 'cliente_display')
+    fields        = ('cliente', 'cliente_display', 'ativo', 'data_vinculacao')
+
+    def cliente_display(self, obj):
+        """Exibe info do cliente de forma legível."""
+        if not obj.cliente:
+            return '—'
+        return format_html(
+            '<strong>{}</strong><br><small style="color:#666">{}</small>',
+            obj.cliente.nome_exibicao,
+            obj.cliente.documento or 'Sem documento'
+        )
+    cliente_display.short_description = 'Cliente Vinculado'
+
+
+@admin.register(Usuario)
+class UsuarioAdmin(admin.ModelAdmin):
+    """
+    Admin para gerenciar usuários (clientes e admins).
+    
+    Para clientes:
+    - Use a aba "Clientes Vinculados" para vincular múltiplas empresas/pessoas
+    - Toggle "Ativo" para ativar/desativar um cliente
+    
+    Para admins:
+    - Configure permissões (is_staff, is_superuser)
+    """
+    list_display    = ('email', 'tipo_usuario', 'is_active', 'clientes_vinculados_count', 'date_joined')
+    list_filter     = ('is_staff', 'is_superuser', 'date_joined')
+    search_fields   = ('email',)
+    readonly_fields = ('date_joined', 'tipo_usuario', 'clientes_vinculados_count')
+    
+    fieldsets = (
+        ('Autenticação', {
+            'fields': ('email', 'password')
+        }),
+        ('Status', {
+            'fields': ('is_active', 'is_staff', 'is_superuser', 'tipo_usuario', 'date_joined')
+        }),
+    )
+    
+    inlines = [ClienteVinculadoInline]
+
+    def tipo_usuario(self, obj):
+        """Determina o tipo de usuário (Super Admin, Admin, Cliente)."""
+        if obj.is_superuser:
+            return format_html(
+                '<span style="background:#c0392b;color:#fff;padding:3px 10px;'
+                'border-radius:4px;font-weight:bold">Super Administrador</span>'
+            )
+        elif obj.is_staff:
+            return format_html(
+                '<span style="background:#3498db;color:#fff;padding:3px 10px;'
+                'border-radius:4px;font-weight:bold">Administrador</span>'
+            )
+        else:
+            return format_html(
+                '<span style="background:#27ae60;color:#fff;padding:3px 10px;'
+                'border-radius:4px;font-weight:bold">Cliente</span>'
+            )
+    tipo_usuario.short_description = 'Tipo de Usuário'
+
+    def clientes_vinculados_count(self, obj):
+        """Conta quantos clientes estão vinculados a este usuário."""
+        total = obj.clientes_vinculados.count()
+        ativos = obj.clientes_vinculados.filter(ativo=True).count()
+        
+        if total == 0:
+            return format_html('<span style="color:#999">Nenhum</span>')
+        
+        color = '#27ae60' if total > 0 else '#999'
+        return format_html(
+            '<span style="color:{};font-weight:bold">{} (ativo: {})</span>',
+            color, total, ativos
+        )
+    clientes_vinculados_count.short_description = 'Clientes Vinculados'
 
 
 # ════════════════════════════════════════════════════════

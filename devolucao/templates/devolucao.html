@@ -1,26 +1,29 @@
+{% extends 'base.html' %}
 {% load static %}
-<!DOCTYPE html>
-<!-- FIX A11Y: lang="pt-BR" — valor BCP 47 válido (era "pt-br") -->
-<html lang="pt-BR">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nova Devolução — Portal de Devoluções</title>
 
-    <!-- FIX SEO: meta description -->
-    <meta name="description" content="Registre uma nova solicitação de devolução informando o CPF/CNPJ, nota fiscal e os produtos a devolver.">
+{% block title %}Nova Devolução — Portal de Devoluções{% endblock %}
 
-    <!-- FIX PERF: preconnect estabelece o handshake TLS com o Google Fonts ANTES
-         do browser descobrir quais fontes precisa — economia de ~190 ms na LCP.
-         O @import foi removido do style.css e substituído por estas tags. -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-
-    <!-- FIX PERF: display=swap — texto aparece imediatamente com fonte fallback
-         enquanto Sora/Fira Code carregam, eliminando o "invisible text" period. -->
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=Fira+Code:wght@400;500&display=swap">
-
-    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+{% block extra_css %}
+    <script>
+        // Força aplicação imediata do dark-mode (evita "flash" ao carregar)
+        // Executa antes da renderização do DOM
+        (function() {
+            if (localStorage.getItem('darkMode') === 'true') {
+                // Aplicar ao html e body assim que possível
+                if (document.documentElement) {
+                    document.documentElement.style.colorScheme = 'dark';
+                }
+                if (document.body) {
+                    document.body.classList.add('dark-mode');
+                } else {
+                    // Se body ainda não existe, aguarda load
+                    document.addEventListener('DOMContentLoaded', function() {
+                        document.body.classList.add('dark-mode');
+                    });
+                }
+            }
+        })();
+    </script>
     <style>
         .saldo-strip { display:flex; gap:14px; margin-top:6px; flex-wrap:wrap; }
         .saldo-item { display:flex; flex-direction:column; gap:1px; }
@@ -65,25 +68,31 @@
         .nota-dropdown-empty { padding:14px 16px; font-size:13px; color:var(--text-muted); text-align:center; }
         .nota-dropdown-count { padding:6px 14px; font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:var(--text-faint); border-bottom:1px solid var(--border); background:var(--surface-2); }
     </style>
-</head>
-<body>
+{% endblock %}
+
+{% block content %}
 <div class="page-wrapper">
     <div class="page-header">
         <div class="page-header__text">
             <h1>Formulário de Devolução</h1>
-            <p>Preencha o CPF/CNPJ para liberar os campos seguintes em sequência.</p>
+            <p>Selecione a empresa ou pessoa, depois escolha a nota fiscal e os produtos para devolver.</p>
         </div>
         <div class="page-header__actions">
             <a href="{% url 'acompanhar_devolucoes' %}" class="btn btn-ghost">
                 <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 1L2 6.5L8 12"/></svg>
                 Minhas Devoluções
             </a>
+            {% if whatsapp_numero %}
+            <a href="https://wa.me/{{ whatsapp_numero|cut:' '|cut:'-'|cut:'('|cut:')' }}" class="btn btn-ghost" target="_blank" title="Entrar em contato via WhatsApp">
+                💬 Fale conosco
+            </a>
+            {% endif %}
         </div>
     </div>
 
     <!-- FIX A11Y: indicador de progresso — não é navegação, role="list" semântico -->
     <div class="steps" role="list" aria-label="Etapas do formulário">
-        <div class="step active" id="step-1" role="listitem"><div class="step-num" aria-hidden="true">1</div><div><div class="step-label">Cliente</div><div class="step-sub">CPF / CNPJ</div></div></div>
+        <div class="step active" id="step-1" role="listitem"><div class="step-num" aria-hidden="true">1</div><div><div class="step-label">Empresa / Pessoa</div><div class="step-sub">Selecionar</div></div></div>
         <div class="step" id="step-2" role="listitem"><div class="step-num" aria-hidden="true">2</div><div><div class="step-label">Nota Fiscal</div><div class="step-sub">Selecionar nota</div></div></div>
         <div class="step" id="step-3" role="listitem"><div class="step-num" aria-hidden="true">3</div><div><div class="step-label">Produtos</div><div class="step-sub">Itens a devolver</div></div></div>
         <div class="step" id="step-4" role="listitem"><div class="step-num" aria-hidden="true">4</div><div><div class="step-label">Revisão</div><div class="step-sub">Confirmar e enviar</div></div></div>
@@ -94,24 +103,20 @@
     <form method="POST" enctype="multipart/form-data" id="form-devolucao">
         {% csrf_token %}
         <input type="hidden" name="produtos_json" id="produtos_json" value="[]">
-        {{ cliente_form.tipo }}
-        <input type="hidden" name="numero_nota" id="hidden_numero_nota">
+        <input type="hidden" name="action" id="action_input" value="enviar">
+        <input type="hidden" name="numero_nota" id="hidden_numero_nota" value="">
 
         <!-- Step 1 -->
         <div class="card card--padded" id="card-cliente">
             <div class="card-title">
-                Cliente
-                <span class="badge badge-ok" id="badge-cliente" style="display:none">✓ Encontrado</span>
+                Empresa / Pessoa
+                <span class="badge badge-ok" id="badge-cliente" style="display:none">✓ Selecionada</span>
             </div>
             <div class="field-row">
                 <div class="field">
-                    <label for="id_documento" id="label-documento">CPF / CNPJ</label>
-                    {{ cliente_form.documento }}
-                    <div class="field-hint" id="msg-cnpj"></div>
-                </div>
-                <div class="field">
-                    <label for="id_nome_exibicao">Nome / Razão Social</label>
-                    {{ cliente_form.nome_exibicao }}
+                    <label for="id_cliente_vinculado">Selecione a empresa ou pessoa</label>
+                    {{ devolucao_form.cliente_vinculado }}
+                    <div class="field-hint" id="msg-cliente"></div>
                 </div>
             </div>
         </div>
@@ -120,26 +125,38 @@
         <div class="card card--padded locked" id="card-nota">
             <div class="card-title">
                 Nota Fiscal
-                <span class="badge badge-lock" id="badge-nota-lock">🔒 Aguardando CPF/CNPJ</span>
+                <span class="badge badge-lock" id="badge-nota-lock">🔒 Selecione empresa/pessoa</span>
                 <span class="badge badge-ok"   id="badge-nota-ok"   style="display:none">✓ Selecionada</span>
             </div>
             <div class="field-row">
                 <div class="field">
-                    <label for="input-nota-busca">Selecionar Nota</label>
+                    <div style="display:flex; gap:10px; margin-bottom:8px; align-items:flex-end">
+                        <div style="flex:1; min-width:140px">
+                            <label for="select-tipo-busca" style="display:block; margin-bottom:6px; font-weight:600; font-size:13px">Buscar por:</label>
+                            <select id="select-tipo-busca" style="width:100%; padding:8px; border:1.5px solid var(--border-strong); border-radius:var(--r-sm); background:var(--surface-2); color:var(--text); font-size:13px; cursor:pointer">
+                                <option value="nota">📋 Nota Fiscal</option>
+                                <option value="produto">📦 Produto</option>
+                            </select>
+                        </div>
+                    </div>
+                    <label for="input-nota-busca">Pesquisar</label>
                     <!-- FIX A11Y: label sr-only para o select oculto (sem label visível associada) -->
                     <label for="select-nota" class="sr-only">Nota Fiscal (select)</label>
                     <select id="select-nota" style="display:none" disabled>
-                        <option value="">— Informe o CPF/CNPJ primeiro —</option>
+                        <option value="">— Selecione empresa/pessoa primeiro —</option>
                     </select>
                     <div class="nota-search-wrap" id="nota-search-wrap">
                         <div class="nota-search-input-wrap">
                             <svg class="search-icon" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="6" cy="6" r="5"/><path d="m10.5 10.5 2.5 2.5" stroke-linecap="round"/></svg>
-                            <input type="text" id="input-nota-busca" placeholder="Informe o CPF/CNPJ primeiro…" autocomplete="off" disabled aria-label="Buscar nota fiscal" aria-autocomplete="list" aria-controls="nota-dropdown">
-                            <button type="button" id="btn-limpar-nota" title="Limpar seleção" aria-label="Limpar nota selecionada">×</button>
+                            <input type="text" id="input-nota-busca" placeholder="Selecione empresa/pessoa primeiro…" autocomplete="off" disabled aria-label="Buscar" aria-autocomplete="list" aria-controls="nota-dropdown">
+                            <button type="button" id="btn-limpar-nota" title="Limpar seleção" aria-label="Limpar seleção">×</button>
                         </div>
-                        <div id="nota-dropdown" role="listbox" aria-label="Notas fiscais disponíveis"></div>
+                        <div id="nota-dropdown" role="listbox" aria-label="Resultados disponíveis"></div>
                     </div>
                     <div class="field-hint" id="msg-nota"></div>
+                    <div class="field-hint info-help" id="msg-nota-help" style="display:none; margin-top: 10px; padding: 8px; background-color: var(--blue-bg); border-radius: 4px; font-size: 12px;">
+                        <strong>💡 Dica:</strong> Se não vê nenhuma nota, verifique se foi importada no painel administrativo ou contate o suporte.
+                    </div>
                 </div>
                 <div class="field">
                     <label for="arquivo_pdf">Anexar PDF <span style="font-weight:400;text-transform:none;color:var(--text-muted)">(opcional)</span></label>
@@ -295,15 +312,32 @@
   let notaIdAtual    = '';
   let notasCarregadas = [];
   let highlightedIndex = -1;
+  let clienteVinculadoIdAtual = ''; // NEW: rastreia cliente_vinculado selecionado
 
   // FIX #13: wrapper de fetch com detecção de sessão expirada
   async function apiFetch(url, options = {}) {
     const resp = await fetch(url, options);
-    if (resp.redirected || resp.status === 403) {
-      alert('Sua sessão expirou. A página será recarregada.');
-      window.location.reload();
-      return null;
+    
+    // Se recebeu 401, é realmente falta de autenticação
+    if (resp.status === 401) {
+      try {
+        const data = await resp.clone().json();
+        if (data.session_expired) {
+          alert('Sua sessão expirou. A página será recarregada.');
+          window.location.reload();
+          return null;
+        }
+      } catch (e) {
+        // Se não conseguir fazer parse, seja conservador
+        alert('Sua sessão expirou. A página será recarregada.');
+        window.location.reload();
+        return null;
+      }
     }
+    
+    // Para 403 (proibido), apenas retorna a resposta sem recarregar
+    // O código da view vai lidar com isso
+    
     return resp;
   }
 
@@ -376,6 +410,96 @@
     produtos = []; syncJson(); renderLista();
   }
 
+  // NEW: carrega notas usando cliente_vinculado_id (nova API)
+  function carregarNotas(clienteVinculadoId) {
+    hint('msg-nota', '🔄 Buscando notas…');
+    document.getElementById('msg-nota-help').style.display = 'none';
+    cardNota.classList.add('locked');
+    
+    apiFetch(`/ajax/buscar-notas-cliente-vinculado/?cliente_vinculado_id=${clienteVinculadoId}`)
+      .then(async r => {
+        if (!r) {
+          throw new Error('Sessão expirada ou erro de autenticação');
+        }
+        
+        // Verifica status HTTP
+        if (!r.ok) {
+          const errorText = await r.text();
+          console.error(`Erro HTTP ${r.status}:`, errorText);
+          
+          if (r.status === 400) {
+            throw new Error('Parâmetro inválido. Por favor, recarregue a página.');
+          } else if (r.status === 403) {
+            throw new Error('Acesso negado. Esta empresa/pessoa não pertence à sua conta.');
+          } else if (r.status === 500) {
+            throw new Error('Erro no servidor ao buscar notas. Tente novamente.');
+          } else {
+            throw new Error(`Erro ${r.status}: ${r.statusText}`);
+          }
+        }
+        
+        return r.json();
+      })
+      .then(data => {
+        if (!data) {
+          throw new Error('Resposta vazia do servidor');
+        }
+        
+        console.log('Notas carregadas:', data);
+        cardNota.classList.remove('locked');
+        
+        if (!data.encontrado || !data.notas?.length) {
+          let mensagem = data.aviso || 'Nenhuma nota disponível no prazo configurado.';
+          if (data.aviso) {
+            if (data.aviso.includes('prazo')) {
+              mensagem = '⏰ ' + data.aviso;
+            } else if (data.aviso.includes('itens')) {
+              mensagem = '📋 ' + data.aviso;
+            } else if (data.aviso.includes('expirada') || data.aviso.includes('Nenhuma')) {
+              mensagem = '⚠️ ' + data.aviso;
+            } else {
+              mensagem = '⚠️ ' + data.aviso;
+            }
+          }
+          hint('msg-nota', mensagem, 'warn');
+          document.getElementById('msg-nota-help').style.display = 'block';
+          inputNotaBusca.disabled = true;
+          inputNotaBusca.placeholder = 'Nenhuma nota disponível';
+          document.getElementById('badge-nota-lock').style.display = '';
+          return;
+        }
+        
+        notasCarregadas = data.notas;
+        inputNotaBusca.disabled    = false;
+        inputNotaBusca.placeholder = 'Digite o número da nota para buscar…';
+        const total      = data.notas.length;
+        const disponiveis = data.notas.filter(n => !n.totalmente_devolvida).length;
+        const bloqueadas  = total - disponiveis;
+        
+        if (disponiveis === 0) {
+          hint('msg-nota', total === 1 ? '✅ Todos os itens desta nota já foram devolvidos.' : `✅ Todas as ${total} notas já foram totalmente devolvidas.`, 'warn');
+          inputNotaBusca.disabled = true;
+        } else {
+          hint('msg-nota', bloqueadas > 0 ? `📁 ${total} nota(s) — ${bloqueadas} totalmente devolvida(s). Clique no campo para ver a lista.` : `📁 ${total} nota(s) disponível(eis). Clique no campo ou digite para buscar.`, bloqueadas > 0 ? 'warn' : 'ok');
+        }
+        
+        document.getElementById('badge-nota-lock').style.display = 'none';
+        markStep(2);
+        inputNotaBusca.focus();
+      })
+      .catch(err => {
+        console.error('Erro ao carregar notas:', err);
+        cardNota.classList.remove('locked');
+        let errorMsg = err.message || 'Erro desconhecido ao buscar notas';
+        hint('msg-nota', '❌ ' + errorMsg, 'err');
+        document.getElementById('msg-nota-help').style.display = 'block';
+        inputNotaBusca.disabled = true;
+        inputNotaBusca.placeholder = 'Erro ao carregar notas';
+        document.getElementById('badge-nota-lock').style.display = '';
+        toast(errorMsg, 'error');
+      });
+  }
+
   function abrirDropdown() {
     const anchor = document.getElementById('nota-search-wrap');
     const rect   = anchor ? anchor.getBoundingClientRect() : inputNotaBusca.getBoundingClientRect();
@@ -387,6 +511,120 @@
   function reposicionarDropdown() { if (notaDropdown.classList.contains('open')) abrirDropdown(); }
   window.addEventListener('resize', reposicionarDropdown);
   window.addEventListener('scroll', reposicionarDropdown, true);
+  function fecharDropdown() { notaDropdown.classList.remove('open'); highlightedIndex = -1; }
+
+  // NOVO: Busca por filtro (nota ou produto)
+  function buscarPorFiltro(tipoBusca, termo) {
+    if (!clienteVinculadoIdAtual) return;
+    if (termo.length < 2) {
+      hint('msg-nota', 'Digite pelo menos 2 caracteres', 'warn');
+      return;
+    }
+    
+    hint('msg-nota', '🔍 Buscando…');
+    
+    apiFetch(`/ajax/buscar-notas-filtro-cliente-vinculado/?cliente_vinculado_id=${clienteVinculadoIdAtual}&tipo_busca=${tipoBusca}&termo_busca=${encodeURIComponent(termo)}`)
+      .then(async r => {
+        if (!r) throw new Error('Sessão expirada');
+        if (!r.ok) {
+          const errorText = await r.text();
+          throw new Error(`Erro ${r.status}`);
+        }
+        return r.json();
+      })
+      .then(data => {
+        if (!data) throw new Error('Resposta vazia');
+        
+        if (!data.encontrado) {
+          hint('msg-nota', `❌ ${data.mensagem || 'Nenhuma nota encontrada'}`, 'err');
+          notaDropdown.innerHTML = `<div class="nota-dropdown-empty">${esc(data.mensagem || 'Nenhuma nota encontrada')}</div>`;
+          abrirDropdown();
+          lockProdutos();
+          return;
+        }
+        
+        // Renderizar dropdown com notas encontradas (com seus itens)
+        renderDropdownComItens(data.notas, termo, tipoBusca);
+        hint('msg-nota', `✅ ${data.total} nota(s) encontrada(s)`, 'ok');
+      })
+      .catch(err => {
+        console.error('Erro na busca por filtro:', err);
+        hint('msg-nota', `❌ ${err.message}`, 'err');
+        lockProdutos();
+        toast(err.message, 'error');
+      });
+  }
+
+  // NOVO: Renderizar dropdown com itens das notas encontradas
+  function renderDropdownComItens(notas, termo, tipoBusca) {
+    notaDropdown.innerHTML = '';
+    
+    if (!notas.length) {
+      notaDropdown.innerHTML = `<div class="nota-dropdown-empty">Nenhuma nota encontrada.</div>`;
+      abrirDropdown();
+      return;
+    }
+    
+    const countEl = document.createElement('div');
+    countEl.className = 'nota-dropdown-count';
+    countEl.textContent = `${notas.length} nota(s) encontrada(s)`;
+    notaDropdown.appendChild(countEl);
+    
+    notas.forEach((nota, idx) => {
+      const opt = document.createElement('div');
+      opt.className = 'nota-opt';
+      opt.dataset.idx = idx;
+      opt.setAttribute('role', 'option');
+      opt.setAttribute('aria-selected', 'false');
+      
+      // Mostrar itens da nota
+      let itensHtml = '';
+      const itensDisponiveis = nota.itens.filter(i => i.quantidade_disponivel > 0);
+      if (tipoBusca === 'produto') {
+        // Se buscando por produto, mostrar apenas os produtos que batem
+        const produtosSelecionados = itensDisponiveis.filter(i => 
+          termo.toLowerCase() in i.codigo.toLowerCase() ||
+          termo.toLowerCase() in i.descricao.toLowerCase()
+        );
+        itensHtml = produtosSelecionados.map(i => 
+          `<small style="display:block;color:var(--text-muted)">${esc(i.codigo)} - ${esc(i.descricao)} (${i.quantidade_disponivel} disp.)</small>`
+        ).join('');
+      } else {
+        // Se buscando por nota, mostrar todos os itens
+        itensHtml = itensDisponiveis.slice(0, 2).map(i => 
+          `<small style="display:block;color:var(--text-muted)">${esc(i.codigo)} - ${esc(i.descricao)}</small>`
+        ).join('');
+        if (itensDisponiveis.length > 2) {
+          itensHtml += `<small style="display:block;color:var(--text-muted);font-style:italic">+${itensDisponiveis.length - 2} mais</small>`;
+        }
+      }
+      
+      opt.innerHTML = `
+        <div style="flex:1">
+          <span class="nota-opt__num">${esc(nota.numero_nota)}</span>
+          <span style="font-size:11px;color:var(--text-muted);display:block;margin-top:2px">${itensHtml}</span>
+        </div>
+        <span class="nota-opt__badge nota-opt__badge--ok">Disponível</span>
+      `;
+      
+      opt.addEventListener('mousedown', e => { 
+        e.preventDefault();
+        selecionarNota({
+          id: nota.id,
+          numero_nota: nota.numero_nota,
+          itens: nota.itens,
+          data_emissao: nota.data_emissao,
+          dias_restantes: nota.dias_restantes
+        });
+      });
+      
+      notaDropdown.appendChild(opt);
+    });
+    
+    highlightedIndex = -1;
+    abrirDropdown();
+  }
+
   function fecharDropdown() { notaDropdown.classList.remove('open'); highlightedIndex = -1; }
 
   function renderDropdown(query) {
@@ -429,12 +667,46 @@
     fecharDropdown();
     removerAlertaNota();
     lockProdutos();
+    
+    // Se já temos os itens (vindo do buscar_notas_por_filtro), usar direto
+    if (n.itens && n.itens.length) {
+      processarItensDaNota(n, n.itens);
+      return;
+    }
+    
+    // Caso contrário, buscar itens via API (compatibilidade com fluxo antigo)
     hint('msg-nota', 'Carregando itens…');
 
-    apiFetch(`/ajax/buscar-itens-nota/?nota_id=${n.id}&documento=${documentoAtual}`)
-      .then(r => r?.json())
+    apiFetch(`/ajax/buscar-itens-nota-cliente-vinculado/?cliente_vinculado_id=${clienteVinculadoIdAtual}&nota_id=${n.id}`)
+      .then(async r => {
+        if (!r) {
+          throw new Error('Sessão expirada ou erro de autenticação');
+        }
+        
+        if (!r.ok) {
+          const errorText = await r.text();
+          console.error(`Erro HTTP ${r.status}:`, errorText);
+          
+          if (r.status === 400) {
+            throw new Error('Parâmetro inválido.');
+          } else if (r.status === 403) {
+            throw new Error('Acesso negado a esta nota.');
+          } else if (r.status === 500) {
+            throw new Error('Erro no servidor ao buscar itens da nota.');
+          } else {
+            throw new Error(`Erro ${r.status}`);
+          }
+        }
+        
+        return r.json();
+      })
       .then(data => {
-        if (!data) return;
+        if (!data) {
+          throw new Error('Resposta vazia do servidor');
+        }
+        
+        console.log('Itens carregados:', data);
+        
         if (!data.encontrado) {
           if (data.totalmente_devolvida) {
             hint('msg-nota', '', '');
@@ -444,41 +716,80 @@
           }
           return;
         }
-        notaItens   = data.itens;
-        notaIdAtual = String(n.id);
-        document.getElementById('hidden_numero_nota').value = n.numero_nota;
-        const sel = document.getElementById('modal-select-produto');
-        sel.innerHTML = '<option value="">— Selecione um produto —</option>';
-        data.itens.forEach(item => {
-          const o = document.createElement('option');
-          o.value = item.id;
-          o.textContent = `${item.codigo} — ${item.descricao}`;
-          o.dataset.codigo       = item.codigo;
-          o.dataset.descricao    = item.descricao;
-          o.dataset.qtdOriginal  = item.quantidade_original;
-          o.dataset.qtdDevolvida = item.quantidade_devolvida;
-          o.dataset.qtd          = item.quantidade_disponivel;
-          sel.appendChild(o);
-        });
-        document.getElementById('card-produtos').style.display  = 'block';
-        document.getElementById('btn-abrir-modal').disabled     = false;
-        document.getElementById('badge-nota-ok').style.display  = '';
-        document.getElementById('badge-nota-lock').style.display = 'none';
-        document.getElementById('badge-nota-ok').textContent    = `✓ Nota ${n.numero_nota}`;
-        const comSaldo   = data.itens.length;
-        const comParcial = data.itens.filter(i => i.quantidade_devolvida > 0).length;
-        let hintMsg = `${comSaldo} produto(s) com saldo disponível.`;
-        if (comParcial > 0) hintMsg += ` (${comParcial} com devolução parcial anterior)`;
-        hint('msg-nota', hintMsg, comParcial > 0 ? 'warn' : 'ok');
-        markStep(2, true); markStep(3);
+        
+        processarItensDaNota(n, data.itens);
+      })
+      .catch(err => {
+        console.error('Erro ao carregar itens:', err);
+        let errorMsg = err.message || 'Erro desconhecido';
+        hint('msg-nota', '❌ ' + errorMsg, 'err');
+        toast(errorMsg, 'error');
+        inputNotaBusca.value = '';
+        btnLimparNota.classList.remove('visible');
       });
+  }
+
+  // NOVO: Processar itens da nota (usado por selecionarNota)
+  function processarItensDaNota(n, itens) {
+    notaItens   = itens;
+    notaIdAtual = String(n.id);
+    document.getElementById('hidden_numero_nota').value = n.numero_nota;
+    const sel = document.getElementById('modal-select-produto');
+    sel.innerHTML = '<option value="">— Selecione um produto —</option>';
+    itens.forEach(item => {
+      const o = document.createElement('option');
+      o.value = item.id;
+      o.textContent = `${item.codigo} — ${item.descricao}`;
+      o.dataset.codigo       = item.codigo;
+      o.dataset.descricao    = item.descricao;
+      o.dataset.qtdOriginal  = item.quantidade_original;
+      o.dataset.qtdDevolvida = item.quantidade_devolvida;
+      o.dataset.qtd          = item.quantidade_disponivel;
+      sel.appendChild(o);
+    });
+    document.getElementById('card-produtos').style.display  = 'block';
+    document.getElementById('btn-abrir-modal').disabled     = false;
+    document.getElementById('badge-nota-ok').style.display  = '';
+    document.getElementById('badge-nota-lock').style.display = 'none';
+    document.getElementById('badge-nota-ok').textContent    = `✓ Nota ${n.numero_nota}`;
+    const comSaldo   = itens.length;
+    const comParcial = itens.filter(i => i.quantidade_devolvida > 0).length;
+    let hintMsg = `${comSaldo} produto(s) com saldo disponível.`;
+    if (comParcial > 0) hintMsg += ` (${comParcial} com devolução parcial anterior)`;
+    hint('msg-nota', hintMsg, comParcial > 0 ? 'warn' : 'ok');
+    markStep(2, true); markStep(3);
   }
 
   inputNotaBusca.addEventListener('input', function () {
     const q = this.value.trim();
+    const tipoBusca = document.getElementById('select-tipo-busca').value;
+    
     btnLimparNota.classList.toggle('visible', q.length > 0);
-    if (!q) { lockProdutos(); hint('msg-nota', `${notasCarregadas.filter(n => !n.totalmente_devolvida).length} nota(s) disponível(eis)`, 'ok'); }
-    renderDropdown(q);
+    
+    if (!q) { 
+      lockProdutos();
+      fecharDropdown();
+      if (tipoBusca === 'nota') {
+        hint('msg-nota', `${notasCarregadas.filter(n => !n.totalmente_devolvida).length} nota(s) disponível(eis)`, 'ok');
+      } else {
+        hint('msg-nota', 'Digite para buscar por produto', 'ok');
+      }
+      return;
+    }
+    
+    // Se tem menos de 2 caracteres, não busca
+    if (q.length < 2) {
+      fecharDropdown();
+      hint('msg-nota', 'Digite pelo menos 2 caracteres', 'warn');
+      return;
+    }
+    
+    // Fazer busca com filtro
+    if (tipoBusca === 'nota') {
+      renderDropdown(q);
+    } else {
+      buscarPorFiltro(tipoBusca, q);
+    }
   });
   inputNotaBusca.addEventListener('focus', function () { if (notasCarregadas.length) renderDropdown(this.value.trim()); });
   inputNotaBusca.addEventListener('blur', () => { setTimeout(fecharDropdown, 150); });
@@ -509,68 +820,53 @@
   });
   document.addEventListener('click', e => { if (!e.target.closest('#nota-search-wrap')) fecharDropdown(); });
 
-  campoDocumento?.addEventListener('input', function () {
-    const doc = this.value.replace(/\D/g, '');
-    documentoAtual = '';
-    campoNome.value = '';
-    campoNome.setAttribute('readonly', 'readonly');
-    document.getElementById('badge-cliente').style.display = 'none';
-    lockNota();
-    if (doc.length !== 11 && doc.length !== 14) { hint('msg-cnpj', ''); return; }
-    const labelEl = document.getElementById('label-documento');
-    if (labelEl) labelEl.textContent = doc.length === 11 ? 'CPF' : 'CNPJ';
-    hint('msg-cnpj', 'Buscando…');
-    apiFetch(`/ajax/buscar-cliente/?documento=${doc}`)
-      .then(r => r?.json())
-      .then(data => {
-        if (!data) return;
-        if (data.encontrado) {
-          documentoAtual = doc;
-          campoNome.value = data.nome_exibicao;
-          campoNome.setAttribute('readonly', 'readonly');
-          const tipoInput = document.getElementById('id_tipo_cliente');
-          if (tipoInput) tipoInput.value = data.tipo;
-          hint('msg-cnpj', '✓ Cliente encontrado', 'ok');
-          document.getElementById('badge-cliente').style.display = '';
-          markStep(1, true);
-          carregarNotas(doc);
-        } else {
-          hint('msg-cnpj', 'Cliente não cadastrado no sistema.', 'err');
-          campoNome.removeAttribute('readonly');
-          lockNota();
-        }
-      });
+  // NOVO: Event listener para seletor de tipo de busca
+  document.getElementById('select-tipo-busca')?.addEventListener('change', function () {
+    const tipoBusca = this.value;
+    inputNotaBusca.value = '';
+    btnLimparNota.classList.remove('visible');
+    fecharDropdown();
+    lockProdutos();
+    removerAlertaNota();
+    
+    const placeholders = {
+      'nota': 'Digite número ou ID da nota…',
+      'produto': 'Digite código ou nome do produto…'
+    };
+    
+    inputNotaBusca.placeholder = placeholders[tipoBusca] || 'Digite para buscar…';
+    
+    if (tipoBusca === 'nota' && notasCarregadas.length) {
+      hint('msg-nota', `${notasCarregadas.filter(n => !n.totalmente_devolvida).length} nota(s) disponível(eis)`, 'ok');
+    } else if (tipoBusca === 'produto') {
+      hint('msg-nota', 'Buscar por código ou nome do produto', 'info');
+    }
   });
 
-  function carregarNotas(documento) {
-    hint('msg-nota', 'Buscando notas…');
-    cardNota.classList.add('locked');
-    apiFetch(`/ajax/buscar-notas-cliente/?documento=${documento}`)
-      .then(r => r?.json())
-      .then(data => {
-        if (!data) return;
-        cardNota.classList.remove('locked');
-        if (!data.encontrado || !data.notas?.length) {
-          hint('msg-nota', data.aviso || 'Nenhuma nota encontrada.', 'warn');
-          inputNotaBusca.disabled = true;
-          return;
-        }
-        notasCarregadas = data.notas;
-        inputNotaBusca.disabled    = false;
-        inputNotaBusca.placeholder = 'Digite o número da nota para buscar…';
-        const total      = data.notas.length;
-        const disponiveis = data.notas.filter(n => !n.totalmente_devolvida).length;
-        const bloqueadas  = total - disponiveis;
-        if (disponiveis === 0) {
-          hint('msg-nota', total === 1 ? 'Todos os itens desta nota já foram devolvidos.' : `Todas as ${total} notas já foram totalmente devolvidas.`, 'warn');
-        } else {
-          hint('msg-nota', bloqueadas > 0 ? `${total} nota(s) — ${bloqueadas} totalmente devolvida(s). Clique no campo para ver a lista.` : `${total} nota(s) disponível(eis). Clique no campo ou digite para buscar.`, bloqueadas > 0 ? 'warn' : 'ok');
-        }
-        document.getElementById('badge-nota-lock').style.display = 'none';
-        markStep(2);
-        inputNotaBusca.focus();
-      });
-  }
+  document.addEventListener('click', e => { if (!e.target.closest('#nota-search-wrap')) fecharDropdown(); });
+
+  // NEW: Handler para dropdown de cliente_vinculado
+  const campoClienteVinculado = document.getElementById('id_cliente_vinculado');
+  
+  campoClienteVinculado?.addEventListener('change', function () {
+    const clienteVinculadoId = this.value;
+    clienteVinculadoIdAtual = clienteVinculadoId;
+    documentoAtual = '';
+    document.getElementById('badge-cliente').style.display = clienteVinculadoId ? '' : 'none';
+    
+    if (!clienteVinculadoId) {
+      lockNota();
+      return;
+    }
+    
+    console.log('Cliente vinculado selecionado:', clienteVinculadoId);
+    
+    // Mark step 1 done
+    markStep(1, true);
+    
+    // Load notas for this cliente_vinculado
+    carregarNotas(clienteVinculadoId);
+  });
 
   document.getElementById('arquivo_pdf')?.addEventListener('change', function () {
     document.getElementById('file-label').textContent = this.files[0] ? '📄 ' + this.files[0].name : '📎 Clique para anexar PDF da nota';
@@ -863,5 +1159,5 @@
   }
 })();
 </script>
-</body>
-</html>
+
+{% endblock %}
