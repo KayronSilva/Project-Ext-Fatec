@@ -2470,121 +2470,429 @@ def busca_avancada_ajax(request):
         return JsonResponse({'success': False, 'error': str(e)}, status=500)
 
 
+import json
+import logging
+
+from django.shortcuts import render, get_object_or_404, redirect
+from django.http import JsonResponse
+from django.contrib.auth.decorators import login_required
+from django.views.decorators.http import require_POST, require_GET
+
+from .models import Devolucao, MensagemChat
+
+logger = logging.getLogger(__name__)
+
+
+# # ════════════════════════════════════════════════════════
+# # 🔒 Função auxiliar de permissão
+# # ════════════════════════════════════════════════════════
+# def usuario_tem_acesso(request, devolucao):
+#     try:
+#         cliente = request.user.cliente
+#         return devolucao.cliente_id == cliente.id or request.user.is_staff
+#     except Exception:
+#         return request.user.is_staff
+
+
+# # ════════════════════════════════════════════════════════
+# # 💬 View do Chat
+# # ════════════════════════════════════════════════════════
+# @login_required
+# def chat_view(request, devolucao_id):
+#     devolucao = get_object_or_404(Devolucao, pk=devolucao_id)
+
+#     if not usuario_tem_acesso(request, devolucao):
+#         return redirect('acompanhar_devolucoes')
+
+#     mensagens = (
+#         MensagemChat.objects
+#         .filter(devolucao=devolucao)
+#         .select_related('usuario')
+#         .order_by('criado_em')
+#     )
+
+#     # Marca como lidas (exceto do próprio usuário)
+#     MensagemChat.objects.filter(
+#         devolucao=devolucao
+#     ).exclude(usuario=request.user).update(lido=True)
+
+#     return render(request, 'chat.html', {
+#         'devolucao': devolucao,
+#         'mensagens': mensagens,
+#     })
+
+
+# # ════════════════════════════════════════════════════════
+# # 📤 Enviar mensagem
+# # ════════════════════════════════════════════════════════
+# @require_POST
+# @login_required
+# def enviar_mensagem(request, devolucao_id):
+#     devolucao = get_object_or_404(Devolucao, pk=devolucao_id)
+
+#     if not usuario_tem_acesso(request, devolucao):
+#         return JsonResponse({'success': False, 'error': 'Acesso negado'}, status=403)
+
+#     try:
+#         body = json.loads(request.body)
+#         texto = body.get('texto', '').strip()
+
+#         if not texto:
+#             return JsonResponse({'success': False, 'error': 'Mensagem vazia'}, status=400)
+
+#         if len(texto) > 1000:
+#             return JsonResponse({'success': False, 'error': 'Máx. 1000 caracteres'}, status=400)
+
+#         mensagem = MensagemChat.objects.create(
+#             usuario=request.user,
+#             devolucao=devolucao,
+#             texto=texto
+#         )
+
+#         logger.info(
+#             f'[CHAT] Msg #{mensagem.pk} | Devolução {devolucao_id} | User {request.user.id}'
+#         )
+
+#         return JsonResponse({
+#             'success': True,
+#             'mensagem': {
+#                 'id': mensagem.pk,
+#                 'texto': mensagem.texto,
+#                 'usuario': request.user.email,
+#                 'criado_em': mensagem.criado_em.strftime('%H:%M'),
+#                 'eh_seu': True,
+#             }
+#         })
+
+#     except json.JSONDecodeError:
+#         return JsonResponse({'success': False, 'error': 'JSON inválido'}, status=400)
+
+#     except Exception as e:
+#         logger.error(f'[CHAT ERRO] enviar_mensagem: {e}', exc_info=True)
+#         return JsonResponse({'success': False, 'error': 'Erro interno'}, status=500)
+
+
+# # ════════════════════════════════════════════════════════
+# # 📥 Carregar mensagens (polling)
+# # ════════════════════════════════════════════════════════
+# @require_GET
+# @login_required
+# def carregar_mensagens(request, devolucao_id):
+#     devolucao = get_object_or_404(Devolucao, pk=devolucao_id)
+
+#     if not usuario_tem_acesso(request, devolucao):
+#         return JsonResponse({'success': False, 'error': 'Acesso negado'}, status=403)
+
+#     try:
+#         depois_de = request.GET.get('depois_de')
+
+#         mensagens_qs = (
+#             MensagemChat.objects
+#             .filter(devolucao=devolucao)
+#             .select_related('usuario')
+#             .order_by('criado_em')
+#         )
+
+#         if depois_de:
+#             mensagens_qs = mensagens_qs.filter(pk__gt=depois_de)
+
+#         mensagens = [
+#             {
+#                 'id': msg.pk,
+#                 'usuario': msg.usuario.email,
+#                 'texto': msg.texto,
+#                 'criado_em': msg.criado_em.strftime('%H:%M'),
+#                 'eh_seu': msg.usuario_id == request.user.id,
+#             }
+#             for msg in mensagens_qs
+#         ]
+
+#         return JsonResponse({
+#             'success': True,
+#             'mensagens': mensagens,
+#             'total': len(mensagens),
+#         })
+
+#     except Exception as e:
+#         logger.error(f'[CHAT ERRO] carregar_mensagens: {e}', exc_info=True)
+#         return JsonResponse({'success': False, 'error': 'Erro interno'}, status=500)
+    
+
+# # ════════════════════════════════════════════════════════
+# # Novos views — Portal de Compras (cliente) + Portal de Vendas (admin)
+# # Adicionar no final de views.py (ou importar de cá)
+# # ════════════════════════════════════════════════════════
+
+# import json
+# from datetime import date
+# from django.shortcuts import render, get_object_or_404
+# from django.http import JsonResponse
+# from django.views.decorators.http import require_GET
+# from django.db.models import Sum, Count, F, Q, Prefetch
+# from django.core.serializers.json import DjangoJSONEncoder
+
+# # Os imports abaixo já existem em views.py — não duplicar
+# # from .models import NotaFiscal, ItemNotaFiscal, ItemDevolucao, Devolucao, ConfiguracaoSistema
+# # from .decorators import admin_required, cliente_required
+# # from .views import _get_clientes_vinculados_do_usuario, _checar_prazo
+
+
 # ════════════════════════════════════════════════════════
-# Chat Simples
+# Helper: serializa uma NotaFiscal para JSON
 # ════════════════════════════════════════════════════════
 
-@login_required
-def chat_view(request, devolucao_id):
-    """Exibe chat de mensagens para uma devolução específica."""
-    devolucao = get_object_or_404(Devolucao, pk=devolucao_id)
+def _serializar_nota(nota, ids_clientes=None):
+    """
+    Serializa NotaFiscal para dict compatível com o frontend.
 
-    try:
-        cliente = request.user.cliente
-        if devolucao.cliente_id != cliente.id and not request.user.is_staff:
-            return redirect('acompanhar_devolucoes')
-    except Exception:
-        if not request.user.is_staff:
-            return redirect('login')
+    Args:
+        nota: instância de NotaFiscal (com itens e devolucoes pré-carregados)
+        ids_clientes: set de ids de clientes do usuário logado (para filtro no cliente)
+    """
+    itens_originais = list(nota.itens.all())
+    total_original  = sum(i.quantidade for i in itens_originais)
 
-    mensagens = (
-        MensagemChat.objects
-        .filter(devolucao=devolucao)
-        .select_related('usuario')
-        .order_by('criado_em')
+    # Calcula totais devolvidos por produto
+    devolvidos_map = {}
+    for dev in nota.devolucoes.all():
+        for item_dev in dev.itens.all():
+            pid = item_dev.produto_id
+            devolvidos_map[pid] = devolvidos_map.get(pid, 0) + item_dev.quantidade_devolvida
+
+    total_devolvido = sum(devolvidos_map.values())
+    disponivel      = max(0, total_original - total_devolvido)
+
+    # Determina se a nota pode receber devolução
+    expirado = None
+    dias_restantes = None
+    if nota.data_emissao:
+        prazo = ConfiguracaoSistema.prazo()
+        delta = (date.today() - nota.data_emissao).days
+        dias_restantes = prazo - delta
+        expirado = delta > prazo
+
+    itens_json = []
+    for item in itens_originais:
+        devolvido_item = devolvidos_map.get(item.produto_id, 0)
+        itens_json.append({
+            'produto_id':            item.produto_id,
+            'codigo':                item.produto.codigo    if item.produto else '',
+            'descricao':             item.produto.descricao if item.produto else '',
+            'quantidade_original':   item.quantidade,
+            'quantidade_devolvida':  devolvido_item,
+            'quantidade_disponivel': max(0, item.quantidade - devolvido_item),
+        })
+
+    # Status da nota calculado dinamicamente
+    if disponivel == 0 and total_original > 0:
+        status_calc = 'devolvida'
+    elif nota.status in ('cancelada',):
+        status_calc = 'cancelada'
+    else:
+        status_calc = 'ativa'
+
+    devolucoes_json = []
+    for dev in nota.devolucoes.all():
+        devolucoes_json.append({
+            'pk':     dev.pk,
+            'status': dev.status,
+            'status_display': dev.get_status_display(),
+            'data':   dev.data_criacao.strftime('%d/%m/%Y'),
+        })
+
+    return {
+        'id':              nota.pk,
+        'numero_nota':     nota.numero_nota or '',
+        'data_emissao':    nota.data_emissao.strftime('%d/%m/%Y') if nota.data_emissao else '—',
+        'status':          nota.status,
+        'status_calc':     status_calc,
+        'valor_total':     float(nota.valor_total) if nota.valor_total else None,
+        'cliente_id':      nota.cliente_id,
+        'cliente_nome':    nota.cliente.nome_exibicao if nota.cliente else '—',
+        'cliente_doc':     nota.cliente.documento     if nota.cliente else '—',
+        'total_itens':     total_original,
+        'total_devolvido': total_devolvido,
+        'disponivel':      disponivel,
+        'expirado':        expirado,
+        'dias_restantes':  dias_restantes,
+        'itens':           itens_json,
+        'devolucoes':      devolucoes_json,
+        'pode_devolver':   (not expirado) and disponivel > 0 and nota.status != 'cancelada',
+    }
+
+
+# ════════════════════════════════════════════════════════
+# Portal do Cliente — "Minhas Compras"
+# ════════════════════════════════════════════════════════
+
+@cliente_required
+def minhas_compras(request):
+    """
+    Lista todas as notas fiscais associadas aos clientes vinculados ao usuário.
+    Permite iniciar uma devolução diretamente a partir de uma nota.
+    """
+    clientes_vinculados = _get_clientes_vinculados_do_usuario(request.user)
+
+    if not clientes_vinculados:
+        from django.contrib import messages
+        messages.error(request, '⛔ Nenhuma empresa ou pessoa vinculada à sua conta. Contate o administrador.')
+        return redirect('acompanhar_devolucoes')
+
+    ids_clientes = [cv.cliente.id for cv in clientes_vinculados]
+
+    # Prefetch completo para evitar N+1
+    notas_qs = (
+        NotaFiscal.objects
+        .filter(cliente_id__in=ids_clientes)
+        .select_related('cliente')
+        .prefetch_related(
+            Prefetch('itens', queryset=ItemNotaFiscal.objects.select_related('produto')),
+            Prefetch(
+                'devolucoes',
+                queryset=Devolucao.objects
+                    .prefetch_related(
+                        Prefetch('itens', queryset=ItemDevolucao.objects.select_related('produto'))
+                    )
+            ),
+        )
+        .order_by('-data_emissao', '-id')
     )
 
-    MensagemChat.objects.filter(devolucao=devolucao).exclude(usuario=request.user).update(lido=True)
+    # Serializa para JSON (máx 300 notas)
+    notas_list = [_serializar_nota(n) for n in notas_qs[:300]]
 
-    return render(request, 'chat.html', {
-        'devolucao': devolucao,
-        'mensagens': mensagens,
+    # Contagens para as tabs
+    contagens = {
+        'todas':      len(notas_list),
+        'ativa':      sum(1 for n in notas_list if n['status_calc'] == 'ativa'),
+        'devolvida':  sum(1 for n in notas_list if n['status_calc'] == 'devolvida'),
+        'cancelada':  sum(1 for n in notas_list if n['status_calc'] == 'cancelada'),
+        'pode_devolver': sum(1 for n in notas_list if n['pode_devolver']),
+    }
+
+    notas_json = json.dumps(notas_list, cls=DjangoJSONEncoder)
+
+    # Monta info do cliente para o header (igual a acompanhar_devolucoes)
+    try:
+        cliente = request.user.cliente
+        nome_completo = cliente.nome_exibicao or request.user.email
+    except Exception:
+        nome_completo = request.user.email
+
+    palavras         = nome_completo.strip().split()
+    iniciais_usuario = ''.join(w[0].upper() for w in palavras[:2])
+    primeiro_nome    = palavras[0] if palavras else 'Perfil'
+
+    context = {
+        'notas_json':       notas_json,
+        'contagens':        contagens,
+        'iniciais_usuario': iniciais_usuario,
+        'primeiro_nome':    primeiro_nome,
+    }
+
+    try:
+        config = ConfiguracaoSistema.objects.first()
+        if config and config.whatsapp_numero:
+            context['whatsapp_numero'] = config.whatsapp_numero
+    except Exception:
+        pass
+
+    return render(request, 'minhas_compras.html', context)
+
+
+# ════════════════════════════════════════════════════════
+# Portal do Logista/Admin — "Portal de Vendas"
+# ════════════════════════════════════════════════════════
+
+@admin_required
+def portal_vendas(request):
+    """
+    Visão administrativa de todas as notas fiscais emitidas.
+    Permite filtrar, ver itens e ver o histórico de devoluções de cada nota.
+    """
+    notas_qs = (
+        NotaFiscal.objects
+        .select_related('cliente')
+        .prefetch_related(
+            Prefetch('itens', queryset=ItemNotaFiscal.objects.select_related('produto')),
+            Prefetch(
+                'devolucoes',
+                queryset=Devolucao.objects
+                    .prefetch_related(
+                        Prefetch('itens', queryset=ItemDevolucao.objects.select_related('produto'))
+                    )
+            ),
+        )
+        .order_by('-data_emissao', '-id')
+    )
+
+    notas_list = [_serializar_nota(n) for n in notas_qs[:500]]
+
+    # Agrega totais para os stat cards
+    total_notas     = len(notas_list)
+    total_ativas    = sum(1 for n in notas_list if n['status_calc'] == 'ativa')
+    total_devolvidas= sum(1 for n in notas_list if n['status_calc'] == 'devolvida')
+    total_itens_dev = sum(n['total_devolvido'] for n in notas_list)
+
+    contagens = {
+        'todas':      total_notas,
+        'ativa':      total_ativas,
+        'devolvida':  total_devolvidas,
+        'cancelada':  sum(1 for n in notas_list if n['status_calc'] == 'cancelada'),
+    }
+
+    notas_json = json.dumps(notas_list, cls=DjangoJSONEncoder)
+
+    return render(request, 'portal_vendas.html', {
+        'notas_json':        notas_json,
+        'contagens':         contagens,
+        'total_itens_dev':   total_itens_dev,
+        'pode_gerenciar_admins': request.user.is_superuser or request.user.has_perm('devolucao.pode_gerenciar_usuarios'),
     })
 
 
-@require_POST
-@login_required
-def enviar_mensagem(request, devolucao_id):
-    """AJAX — envia nova mensagem ao chat."""
-    devolucao = get_object_or_404(Devolucao, pk=devolucao_id)
-
-    try:
-        cliente = request.user.cliente
-        if devolucao.cliente_id != cliente.id and not request.user.is_staff:
-            return JsonResponse({'success': False, 'error': 'Acesso negado'}, status=403)
-    except Exception:
-        if not request.user.is_staff:
-            return JsonResponse({'success': False, 'error': 'Não autorizado'}, status=401)
-
-    try:
-        body = json.loads(request.body)
-        texto = body.get('texto', '').strip()
-
-        if not texto:
-            return JsonResponse({'success': False, 'error': 'Mensagem vazia'}, status=400)
-
-        if len(texto) > 1000:
-            return JsonResponse({'success': False, 'error': 'Mensagem muito longa (máx 1000 caracteres)'}, status=400)
-
-        mensagem = MensagemChat.objects.create(
-            usuario=request.user,
-            devolucao=devolucao,
-            texto=texto,
-        )
-
-        logger.info(f'Mensagem chat criada na devolução #{devolucao_id} por {request.user.email}')
-
-        return JsonResponse({
-            'success': True,
-            'mensagem_id': mensagem.pk,
-            'texto': mensagem.texto,
-            'usuario': request.user.email,
-            'criado_em': mensagem.criado_em.strftime('%H:%M'),
-        })
-    except json.JSONDecodeError:
-        return JsonResponse({'success': False, 'error': 'JSON inválido'}, status=400)
-    except Exception as e:
-        logger.error(f'Erro ao enviar mensagem chat: {e}', exc_info=True)
-        return JsonResponse({'success': False, 'error': str(e)}, status=500)
-
+# ════════════════════════════════════════════════════════
+# AJAX: detalhes de uma nota (reutilizável por ambos os portais)
+# ════════════════════════════════════════════════════════
 
 @require_GET
 @login_required
-def carregar_mensagens(request, devolucao_id):
-    """AJAX — carrega histórico de mensagens para polling."""
-    devolucao = get_object_or_404(Devolucao, pk=devolucao_id)
+def ajax_detalhes_nota(request, nota_id):
+    """
+    AJAX — retorna os dados completos de uma nota fiscal.
 
-    try:
-        cliente = request.user.cliente
-        if devolucao.cliente_id != cliente.id and not request.user.is_staff:
-            return JsonResponse({'success': False, 'error': 'Acesso negado'}, status=403)
-    except Exception:
-        if not request.user.is_staff:
-            return JsonResponse({'success': False, 'error': 'Não autorizado'}, status=401)
+    Segurança:
+    - Cliente: pode ver apenas notas de seus clientes vinculados
+    - Admin (is_staff): pode ver qualquer nota
 
-    try:
-        depois_de = request.GET.get('depois_de', None)
-        mensagens_qs = MensagemChat.objects.filter(devolucao=devolucao).select_related('usuario').order_by('criado_em')
+    Returns:
+    {
+        "encontrado": bool,
+        "nota": { ...campos do _serializar_nota... }
+    }
+    """
+    # Carrega a nota com tudo necessário
+    nota = get_object_or_404(
+        NotaFiscal.objects
+        .select_related('cliente')
+        .prefetch_related(
+            Prefetch('itens', queryset=ItemNotaFiscal.objects.select_related('produto')),
+            Prefetch(
+                'devolucoes',
+                queryset=Devolucao.objects
+                    .prefetch_related(
+                        Prefetch('itens', queryset=ItemDevolucao.objects.select_related('produto'))
+                    )
+            ),
+        ),
+        pk=nota_id
+    )
 
-        if depois_de:
-            mensagens_qs = mensagens_qs.filter(pk__gt=depois_de)
+    # Clientes podem ver apenas suas notas
+    if not request.user.is_staff:
+        clientes_vinculados = _get_clientes_vinculados_do_usuario(request.user)
+        ids_clientes = {cv.cliente.id for cv in clientes_vinculados}
+        if nota.cliente_id not in ids_clientes:
+            return JsonResponse({'encontrado': False, 'erro': 'Acesso negado.'}, status=403)
 
-        mensagens = [
-            {
-                'id': msg.pk,
-                'usuario': msg.usuario.email,
-                'texto': msg.texto,
-                'criado_em': msg.criado_em.strftime('%H:%M'),
-                'eh_seu': msg.usuario_id == request.user.id,
-            }
-            for msg in mensagens_qs
-        ]
-
-        return JsonResponse({
-            'success': True,
-            'mensagens': mensagens,
-            'total': len(mensagens),
-        })
-    except Exception as e:
-        logger.error(f'Erro ao carregar mensagens chat: {e}', exc_info=True)
-        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+    return JsonResponse({'encontrado': True, 'nota': _serializar_nota(nota)})

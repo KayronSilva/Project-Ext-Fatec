@@ -1041,6 +1041,8 @@
   let highlightedIndex = -1;
   let clienteVinculadoIdAtual = '';
 
+  const autoNotaId = new URLSearchParams(location.search).get('nota_id');
+
   async function apiFetch(url, options = {}) {
     const resp = await fetch(url, options);
     if (resp.status === 401) {
@@ -1157,6 +1159,19 @@
         } else {
           hint('msg-nota', bloqueadas > 0 ? `📁 ${total} nota(s) — ${bloqueadas} totalmente devolvida(s).` : `📁 ${total} nota(s) disponível(eis). Clique ou digite para buscar.`, bloqueadas > 0 ? 'warn' : 'ok');
         }
+        // Auto-selecionar nota se veio via ?nota_id=
+            if (autoNotaId) {
+            const notaAlvo = notasCarregadas.find(n => String(n.id) === String(autoNotaId));
+            if (notaAlvo && !notaAlvo.totalmente_devolvida) {
+                inputNotaBusca.value = notaAlvo.numero_nota;
+                btnLimparNota.classList.add('visible');
+                selecionarNota(notaAlvo);
+            } else if (notaAlvo && notaAlvo.totalmente_devolvida) {
+                hint('msg-nota', '⚠️ Esta nota já foi totalmente devolvida.', 'warn');
+            } else {
+                hint('msg-nota', `⚠️ Nota #${autoNotaId} não encontrada para este cliente.`, 'warn');
+            }
+            }
         document.getElementById('badge-nota-lock').style.display = 'none';
         markStep(2);
         inputNotaBusca.focus();
@@ -1498,6 +1513,22 @@
   });
 
   if (produtos.length > 0) { document.getElementById('card-produtos').style.display = 'block'; document.getElementById('btn-abrir-modal').disabled = false; renderLista(); atualizarSteps(); }
+
+// --- O TRECHO 3 VAI AQUI ---
+// Auto-dispara seleção de cliente se apenas um vinculado e há ?nota_id=
+if (autoNotaId && campoClienteVinculado) {
+  const opcoesValidas = [...campoClienteVinculado.options].filter(o => o.value);
+  if (opcoesValidas.length === 1) {
+    campoClienteVinculado.value = opcoesValidas[0].value;
+    campoClienteVinculado.dispatchEvent(new Event('change'));
+  } else if (opcoesValidas.length > 1) {
+    // Mais de um vínculo: abre o card com hint orientando
+    hint('msg-cliente', '⬆️ Selecione a empresa/pessoa para continuar.', 'info');
+    document.getElementById('badge-cliente').style.display = 'none';
+  }
+}
+
 })();
+
 </script>
 {% endblock %}

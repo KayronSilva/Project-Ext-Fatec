@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Chat da Devolução</title>
+
+    <style>
+        body { margin:0; font-family: Arial; background:#ece5dd; }
+
+        .chat-container {
+            display:flex;
+            flex-direction:column;
+            height:100vh;
+        }
+
+        .chat-header {
+            background:#075e54;
+            color:#fff;
+            padding:15px;
+            font-weight:bold;
+        }
+
+        .chat-messages {
+            flex:1;
+            padding:15px;
+            overflow-y:auto;
+        }
+
+        .msg {
+            max-width:60%;
+            margin-bottom:10px;
+            padding:10px;
+            border-radius:10px;
+            clear:both;
+        }
+
+        .me {
+            background:#dcf8c6;
+            float:right;
+        }
+
+        .other {
+            background:#fff;
+            float:left;
+        }
+
+        .time {
+            font-size:10px;
+            color:#666;
+            margin-top:5px;
+        }
+
+        .chat-input {
+            display:flex;
+            padding:10px;
+            background:#f0f0f0;
+        }
+
+        input {
+            flex:1;
+            padding:10px;
+            border-radius:20px;
+            border:1px solid #ccc;
+        }
+
+        button {
+            margin-left:10px;
+            padding:10px 15px;
+            border:none;
+            background:#075e54;
+            color:white;
+            border-radius:20px;
+            cursor:pointer;
+        }
+    </style>
+</head>
+<body>
+
+<div class="chat-container">
+
+    <div class="chat-header">
+        Devolução #{{ devolucao.id }}
+    </div>
+
+    <div id="chat-box" class="chat-messages">
+        <!-- Render inicial -->
+        {% for msg in mensagens %}
+            <div class="msg {% if msg.usuario_id == user.id %}me{% else %}other{% endif %}">
+                {{ msg.texto }}
+                <div class="time">{{ msg.criado_em|time:"H:i" }}</div>
+            </div>
+        {% endfor %}
+    </div>
+
+    <div class="chat-input">
+        <input type="text" id="input-msg" placeholder="Digite uma mensagem...">
+        <button onclick="enviar()">Enviar</button>
+    </div>
+
+</div>
+
+<script>
+    const devolucaoId = "{{ devolucao.id }}";
+    let ultimoId = 0;
+
+    function carregar() {
+        fetch(`/ajax/chat/${devolucaoId}/carregar/?depois_de=${ultimoId}`)
+        .then(r => r.json())
+        .then(data => {
+            if (!data.success) return;
+
+            const box = document.getElementById('chat-box');
+
+            data.mensagens.forEach(msg => {
+                const div = document.createElement('div');
+                div.classList.add('msg');
+
+                if (msg.eh_seu) {
+                    div.classList.add('me');
+                } else {
+                    div.classList.add('other');
+                }
+
+                div.innerHTML = `
+                    ${msg.texto}
+                    <div class="time">${msg.criado_em}</div>
+                `;
+
+                box.appendChild(div);
+                ultimoId = msg.id;
+            });
+
+            box.scrollTop = box.scrollHeight;
+        });
+    }
+
+    function enviar() {
+        const input = document.getElementById('input-msg');
+        const texto = input.value;
+
+        if (!texto) return;
+
+        fetch(`/ajax/chat/${devolucaoId}/enviar/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCSRF()
+            },
+            body: JSON.stringify({ texto: texto })
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                input.value = '';
+                carregar();
+            }
+        });
+    }
+
+    function getCSRF() {
+        return document.cookie.split('; ')
+            .find(row => row.startsWith('csrftoken'))
+            ?.split('=')[1];
+    }
+
+    // Atualiza a cada 2s
+    setInterval(carregar, 2000);
+
+    carregar();
+</script>
+
+</body>
+</html>

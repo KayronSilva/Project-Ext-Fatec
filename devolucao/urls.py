@@ -12,6 +12,8 @@ urlpatterns = [
     path('',           views.acompanhar_devolucoes, name='acompanhar_devolucoes'),
     path('devolucao/', views.tela_devolucao,        name='tela_devolucao'),
     path('devolucao/<int:devolucao_id>/excluir/', views.excluir_devolucao_cliente, name='excluir_devolucao_cliente'),
+    path('minhas-compras/', views.minhas_compras, name='minhas_compras'),
+    
 
     # ── AJAX ──────────────────────────────────────────────
     path('ajax/perfil/',               views.perfil_dados,         name='perfil_dados'),
@@ -25,7 +27,8 @@ urlpatterns = [
     path('ajax/buscar-notas-cliente-vinculado/',            views.buscar_notas_cliente_vinculado,            name='buscar_notas_cliente_vinculado'),
     path('ajax/buscar-itens-nota-cliente-vinculado/',       views.buscar_itens_nota_cliente_vinculado,       name='buscar_itens_nota_cliente_vinculado'),
     path('ajax/buscar-notas-filtro-cliente-vinculado/',     views.buscar_notas_por_filtro_cliente_vinculado, name='buscar_notas_filtro_cliente_vinculado'),
-
+    path('ajax/nota/<int:nota_id>/detalhes/', views.ajax_detalhes_nota, name='ajax_detalhes_nota'),
+    
     # ── Painel Administrativo ─────────────────────────────
     path('painel/',                                      views.painel_admin,               name='painel_admin'),
     path('painel/devolucao/<int:devolucao_id>/status/', views.atualizar_status_devolucao, name='atualizar_status_devolucao'),
@@ -33,6 +36,7 @@ urlpatterns = [
     path('painel/devolucao/<int:devolucao_id>/obs-interna/',
      views.salvar_observacao_interna,
      name='salvar_observacao_interna'),
+    path('painel/vendas/', views.portal_vendas, name='portal_vendas'),
 
     # ── Gestão de Usuários ────────────────────────────────
     path('painel/usuarios/',                          views.gestao_usuarios, name='gestao_usuarios'),
@@ -64,3 +68,4 @@ urlpatterns = [
     path('ajax/chat/<int:devolucao_id>/enviar/',  views.enviar_mensagem,  name='enviar_mensagem'),
     path('ajax/chat/<int:devolucao_id>/carregar/', views.carregar_mensagens, name='carregar_mensagens'),
 ]
+
