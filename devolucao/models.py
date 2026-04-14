@@ -312,6 +312,11 @@ class ClienteVinculado(models.Model):
 # ════════════════════════════════════════════════════════
 # Modelos existentes — sem alteração
 # ════════════════════════════════════════════════════════
+STATUS_NOTA = [
+    ('ativa',     'Ativa'),
+    ('cancelada', 'Cancelada'),
+    ('devolvida', 'Devolvida parcialmente'),
+]
 
 class NotaFiscal(models.Model):
     cliente      = models.ForeignKey(
@@ -327,6 +332,18 @@ class NotaFiscal(models.Model):
         null=True, blank=True,
         db_column='pdf',
         validators=[FileExtensionValidator(['pdf'])],
+    )
+
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_NOTA,
+        default='ativa',
+        db_column='status'
+    )
+    valor_total = models.DecimalField(
+        max_digits=12, decimal_places=2,
+        null=True, blank=True,
+        db_column='vlr_total'
     )
 
     def __str__(self):
@@ -456,6 +473,11 @@ class Devolucao(models.Model):
     )
     data_criacao     = models.DateTimeField(auto_now_add=True, db_column='dt_criacao')
     observacao_geral = models.CharField(max_length=200, blank=True, null=True, db_column='obs_geral')
+    observacao_interna = models.TextField(
+    null=True, blank=True,
+    db_column='obs_interna',
+    verbose_name='Observação Interna (Admin)'
+)
 
     def save(self, *args, **kwargs):
         if self.nota_fiscal_id and not self.cliente_id:

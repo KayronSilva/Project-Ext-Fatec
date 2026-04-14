@@ -139,11 +139,81 @@
         .btn-status--recusar   { background: #c0392b; color: #fff; }
         .btn-status--reabrir   { background: var(--surface-3); color: var(--text-2); border: 1.5px solid var(--border); }
 
-        /* ── Foto thumb (reuso do acompanhar_devolucoes) ─── */
+        /* ── Foto thumb ──────────────────────────────────── */
         .item-foto-wrap  { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
         .item-foto-thumb { width: 52px; height: 52px; object-fit: cover; border-radius: 6px; border: 1.5px solid var(--border); cursor: zoom-in; transition: transform .15s, box-shadow .15s; }
         .item-foto-thumb:hover { transform: scale(1.06); box-shadow: 0 4px 14px rgba(0,0,0,.18); }
         .item-foto-label { font-size: 11px; color: var(--text-muted); font-weight: 600; }
+
+        /* ── Observação interna (NOVO) ───────────────────── */
+        .obs-interna-section {
+            padding: 14px 24px;
+            background: #fffbf0;
+            border-top: 1px solid #f0e0a0;
+            border-bottom: 1px solid #f0e0a0;
+            flex-shrink: 0;
+        }
+        .obs-interna-section__label {
+            font-size: 10.5px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .08em;
+            color: #a07800;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .obs-interna-section__badge {
+            background: #ffd966;
+            color: #7a5800;
+            font-size: 9px;
+            font-weight: 700;
+            padding: 1px 6px;
+            border-radius: 20px;
+            text-transform: uppercase;
+            letter-spacing: .06em;
+        }
+        .obs-interna-textarea {
+            width: 100%;
+            min-height: 72px;
+            padding: 10px 12px;
+            border: 1.5px solid #e0c860;
+            border-radius: var(--r-sm);
+            background: #fffff8;
+            color: var(--text);
+            font-size: 13px;
+            font-family: 'Sora', sans-serif;
+            resize: vertical;
+            outline: none;
+            box-sizing: border-box;
+            transition: border-color .15s;
+        }
+        .obs-interna-textarea:focus { border-color: #c8a000; box-shadow: 0 0 0 2px rgba(200,160,0,.12); }
+        .obs-interna-actions {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-top: 8px;
+        }
+        .obs-interna-hint {
+            font-size: 11px;
+            color: #a07800;
+        }
+        .btn-salvar-obs {
+            padding: 7px 16px;
+            background: #c8a000;
+            color: #fff;
+            border: none;
+            border-radius: var(--r-sm);
+            font-size: 12px;
+            font-weight: 600;
+            font-family: 'Sora', sans-serif;
+            cursor: pointer;
+            transition: opacity .15s, transform .15s;
+        }
+        .btn-salvar-obs:hover    { opacity: .86; transform: translateY(-1px); }
+        .btn-salvar-obs:disabled { opacity: .4; cursor: not-allowed; transform: none; }
 
         @media (max-width: 900px) {
             .stats-row { grid-template-columns: repeat(3, 1fr); }
@@ -206,58 +276,39 @@
         </div>
     </div>
 
-    <!-- ── Card de Configurações ────────────────────────── -->
+    <!-- ── Card de Configurações ─────────────────────────── -->
     <div class="card" style="margin-bottom: 24px;">
         <div style="padding: 20px 24px;">
             <h3 style="font-size: 15px; font-weight: 700; margin-bottom: 16px; color: var(--text);">⚙ Configurações do Sistema</h3>
-            
             <div style="display: grid; grid-template-columns: 1fr; gap: 16px;">
-                <!-- Configuração de WhatsApp -->
                 <div style="display: flex; flex-direction: column; gap: 8px;">
                     <label for="whatsapp-numero" style="font-size: 13px; font-weight: 600; color: var(--text-2);">Número de WhatsApp para Contato</label>
                     <div style="display: flex; gap: 8px; align-items: center;">
-                        <input 
-                            type="text" 
+                        <input
+                            type="text"
                             id="whatsapp-numero"
                             placeholder="Ex: +55 11 99999-9999 ou (11) 99999-9999"
                             value="{{ configuracao.whatsapp_numero|default:'' }}"
                             style="flex: 1; padding: 10px 14px; border: 1.5px solid var(--border); border-radius: var(--r-sm); background: var(--surface-3); color: var(--text); font-size: 13px; font-family: 'Sora', sans-serif;"
                         >
-                        <!-- Botões modo visualização (padrão) -->
-                        <button 
-                            id="btn-salvar-whatsapp" 
-                            class="btn btn-primary"
-                            style="white-space: nowrap; padding: 10px 16px; display: {% if configuracao.whatsapp_numero %}none{% endif %};"
-                        >
+                        <button id="btn-salvar-whatsapp" class="btn btn-primary"
+                            style="white-space: nowrap; padding: 10px 16px; display: {% if configuracao.whatsapp_numero %}none{% endif %};">
                             💾 Salvar
                         </button>
-                        <button
-                            id="btn-editar-whatsapp"
-                            class="btn btn-ghost"
-                            style="white-space: nowrap; padding: 10px 14px; display: {% if not configuracao.whatsapp_numero %}none{% endif %};"
-                        >
+                        <button id="btn-editar-whatsapp" class="btn btn-ghost"
+                            style="white-space: nowrap; padding: 10px 14px; display: {% if not configuracao.whatsapp_numero %}none{% endif %};">
                             ✏️ Editar
                         </button>
-                        <button
-                            id="btn-remover-whatsapp"
-                            class="btn btn-ghost"
-                            style="white-space: nowrap; padding: 10px 14px; display: {% if not configuracao.whatsapp_numero %}none{% endif %};"
-                        >
+                        <button id="btn-remover-whatsapp" class="btn btn-ghost"
+                            style="white-space: nowrap; padding: 10px 14px; display: {% if not configuracao.whatsapp_numero %}none{% endif %};">
                             🗑️ Remover
                         </button>
-                        <!-- Botões modo edição -->
-                        <button
-                            id="btn-cancelar-whatsapp"
-                            class="btn btn-ghost"
-                            style="white-space: nowrap; padding: 10px 14px; display: none;"
-                        >
+                        <button id="btn-cancelar-whatsapp" class="btn btn-ghost"
+                            style="white-space: nowrap; padding: 10px 14px; display: none;">
                             ✕ Cancelar
                         </button>
-                        <button
-                            id="btn-salvar-whatsapp-edit"
-                            class="btn btn-primary"
-                            style="white-space: nowrap; padding: 10px 16px; display: none;"
-                        >
+                        <button id="btn-salvar-whatsapp-edit" class="btn btn-primary"
+                            style="white-space: nowrap; padding: 10px 16px; display: none;">
                             💾 Salvar
                         </button>
                     </div>
@@ -334,7 +385,6 @@
                                 {{ dev.get_status_display }}
                             </span>
                         </td>
-                        <!-- Bloqueia click da row para não abrir modal ao usar o select -->
                         <td onclick="event.stopPropagation()">
                             <select class="status-select"
                                     data-id="{{ dev.pk }}"
@@ -411,11 +461,31 @@
 
         <div class="modal-meta" id="modal-meta" style="flex-shrink:0"></div>
 
-        <!-- Seção de ações de status (exclusiva do painel admin) -->
+        <!-- Seção de ações de status -->
         <div class="modal-status-section" id="modal-status-section" style="flex-shrink:0">
             <div class="modal-status-section__label">⚡ Alterar status</div>
             <div class="modal-actions" id="modal-actions"></div>
         </div>
+
+        <!-- ── NOVO: Seção de observação interna (somente admin) ── -->
+        <div class="obs-interna-section" style="flex-shrink:0">
+            <div class="obs-interna-section__label">
+                🔒 Observação Interna
+                <span class="obs-interna-section__badge">Somente Admin</span>
+            </div>
+            <textarea
+                id="obs-interna-textarea"
+                class="obs-interna-textarea"
+                placeholder="Registre aqui o motivo interno da tratativa (não visível ao cliente)…"
+            ></textarea>
+            <div class="obs-interna-actions">
+                <span class="obs-interna-hint">Não aparece para o cliente.</span>
+                <button class="btn-salvar-obs" id="btn-salvar-obs" onclick="salvarObsInterna()">
+                    💾 Salvar observação
+                </button>
+            </div>
+        </div>
+        <!-- ── FIM observação interna ──────────────────────────── -->
 
         <div class="modal-body" id="modal-body" style="overflow-y:auto;flex:1">
             <div class="itens-title">Itens da Devolução</div>
@@ -438,6 +508,9 @@
   const CSRF = document.cookie.match(/csrftoken=([^;]+)/)?.[1] || '';
   let devolucoes = JSON.parse(document.getElementById('devolucoes-data').textContent);
   let activeStatus = 'todos', query = '', sortDir = -1, page = 1, perPage = 10;
+
+  // ID da devolução atualmente aberta no modal
+  let modalDevId = null;
 
   // ── Toast ──────────────────────────────────────────────
   const toastEl = document.getElementById('toast');
@@ -542,16 +615,13 @@
     .then(r => r.json())
     .then(data => {
       if (data.success) {
-        // Atualiza JSON local
         const dev = devolucoes.find(d => d.pk === +id);
         if (dev) { dev.status = data.status; dev.status_display = data.status_display; }
-        // Atualiza row
         atualizarRow(id, data.status, data.status_display);
         render();
         showToast(`✓ Devolução #${id} → ${data.status_display}`, 'success');
       } else {
         showToast(`✗ ${data.error || 'Erro ao atualizar.'}`, 'error');
-        // Reverte select para o valor anterior
         const dev = devolucoes.find(d => d.pk === +id);
         if (dev) selectEl.value = dev.status;
       }
@@ -573,18 +643,14 @@
     .then(r => r.json())
     .then(data => {
       if (data.success) {
-        // Atualiza JSON local
         const dev = devolucoes.find(d => d.pk === devId);
         if (dev) { dev.status = data.status; dev.status_display = data.status_display; }
-        // Atualiza a row na tabela
         atualizarRow(devId, data.status, data.status_display);
-        // Atualiza badge no modal-meta
         const metaBadge = document.querySelector('#modal-meta .status-badge');
         if (metaBadge) {
           metaBadge.className = `status-badge status-${data.status}`;
           metaBadge.textContent = data.status_display;
         }
-        // Re-renderiza botões de ação do modal
         renderModalActions(devId, data.status);
         render();
         showToast(`✓ Status atualizado: ${data.status_display}`, 'success');
@@ -599,9 +665,42 @@
     });
   };
 
+  // ── NOVO: AJAX salvar observação interna ──────────────
+  window.salvarObsInterna = function () {
+    if (!modalDevId) return;
+
+    const textarea = document.getElementById('obs-interna-textarea');
+    const btn      = document.getElementById('btn-salvar-obs');
+    const obs      = textarea.value.trim();
+
+    btn.disabled     = true;
+    btn.textContent  = '⏳ Salvando…';
+
+    fetch(`/painel/devolucao/${modalDevId}/obs-interna/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+      body: JSON.stringify({ observacao_interna: obs }),
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (data.success) {
+        // Atualiza o JSON local para que ao reabrir o modal o valor persista
+        const dev = devolucoes.find(d => d.pk === modalDevId);
+        if (dev) dev.obs_interna = data.observacao_interna;
+        showToast('✓ Observação interna salva.', 'success');
+      } else {
+        showToast(`✗ ${data.error || 'Erro ao salvar.'}`, 'error');
+      }
+    })
+    .catch(() => showToast('✗ Erro de conexão.', 'error'))
+    .finally(() => {
+      btn.disabled    = false;
+      btn.textContent = '💾 Salvar observação';
+    });
+  };
+
   // ── Renderiza botões de ação no modal ─────────────────
   function renderModalActions(devId, status) {
-    // Define quais transições são possíveis a partir de cada status
     const TRANSITIONS = {
       'pendente': [
         ['em_processo', 'btn-status--processar', '▶ Iniciar análise'],
@@ -618,7 +717,7 @@
       ],
     };
 
-    const actions  = TRANSITIONS[status] || [];
+    const actions   = TRANSITIONS[status] || [];
     const container = document.getElementById('modal-actions');
 
     if (!actions.length) {
@@ -654,6 +753,9 @@
     const dev = devolucoes.find(d => d.pk === id);
     if (!dev) return;
 
+    // Armazena o ID aberto para uso no salvar obs interna
+    modalDevId = id;
+
     document.getElementById('modal-title').textContent    = `Devolução #${dev.pk}`;
     document.getElementById('modal-subtitle').textContent = `${dev.itens.length} item(ns) · ${dev.data_criacao}`;
 
@@ -667,6 +769,9 @@
     ).join('');
 
     renderModalActions(id, dev.status);
+
+    // ── Preenche observação interna (NOVO) ──────────────
+    document.getElementById('obs-interna-textarea').value = dev.obs_interna || '';
 
     document.getElementById('modal-itens').innerHTML = dev.itens.length
       ? dev.itens.map(item => `
@@ -701,7 +806,7 @@
         .join('')
       : '<p style="color:var(--text-muted);font-size:13px;padding:4px 0">Sem itens registrados.</p>';
 
-    // Obs geral
+    // Obs geral (visível ao cliente)
     const body = document.getElementById('modal-body');
     body.querySelector('.obs-geral')?.remove();
     if (dev.obs_geral) {
@@ -734,47 +839,45 @@
   function fecharModal() {
     overlay.classList.remove('open');
     document.body.style.overflow = '';
+    modalDevId = null;
   }
   document.getElementById('btn-fechar-modal')?.addEventListener('click', fecharModal);
   document.getElementById('btn-fechar-modal-footer')?.addEventListener('click', fecharModal);
   overlay.addEventListener('click', e => { if (e.target === overlay) fecharModal(); });
   document.addEventListener('keydown', e => { if (e.key === 'Escape') fecharModal(); });
 
-  // Gerenciar configurações de WhatsApp (com estado de bloqueio/edição)
-  const inputWhatsapp = document.getElementById('whatsapp-numero');
-  const btnSalvarWhatsapp = document.getElementById('btn-salvar-whatsapp');
-  const btnEditarWhatsapp = document.getElementById('btn-editar-whatsapp');
-  const btnRemoverWhatsapp = document.getElementById('btn-remover-whatsapp');
-  const btnCancelarWhatsapp = document.getElementById('btn-cancelar-whatsapp');
-  const btnSalvarWhatsappEdit = document.getElementById('btn-salvar-whatsapp-edit');
-  
+  // ── Configurações de WhatsApp ─────────────────────────
+  const inputWhatsapp        = document.getElementById('whatsapp-numero');
+  const btnSalvarWhatsapp    = document.getElementById('btn-salvar-whatsapp');
+  const btnEditarWhatsapp    = document.getElementById('btn-editar-whatsapp');
+  const btnRemoverWhatsapp   = document.getElementById('btn-remover-whatsapp');
+  const btnCancelarWhatsapp  = document.getElementById('btn-cancelar-whatsapp');
+  const btnSalvarWhatsappEdit= document.getElementById('btn-salvar-whatsapp-edit');
+
   let valorOriginalWhatsapp = inputWhatsapp.value;
-  
+
   function atualizarEstadoWhatsapp() {
-    const temValor = inputWhatsapp.value.trim().length > 0;
+    const temValor      = inputWhatsapp.value.trim().length > 0;
     const estaDesabilitado = inputWhatsapp.disabled;
-    
+
     if (estaDesabilitado && temValor) {
-      // Modo visualização (campo desabilitado, número válido)
-      btnSalvarWhatsapp.style.display = 'none';
-      btnEditarWhatsapp.style.display = 'inline-block';
-      btnRemoverWhatsapp.style.display = 'inline-block';
-      btnCancelarWhatsapp.style.display = 'none';
-      btnSalvarWhatsappEdit.style.display = 'none';
+      btnSalvarWhatsapp.style.display    = 'none';
+      btnEditarWhatsapp.style.display    = 'inline-block';
+      btnRemoverWhatsapp.style.display   = 'inline-block';
+      btnCancelarWhatsapp.style.display  = 'none';
+      btnSalvarWhatsappEdit.style.display= 'none';
     } else if (!estaDesabilitado) {
-      // Modo edição (campo habilitado)
-      btnSalvarWhatsapp.style.display = 'none';
-      btnEditarWhatsapp.style.display = 'none';
-      btnRemoverWhatsapp.style.display = 'none';
-      btnCancelarWhatsapp.style.display = 'inline-block';
-      btnSalvarWhatsappEdit.style.display = 'inline-block';
+      btnSalvarWhatsapp.style.display    = 'none';
+      btnEditarWhatsapp.style.display    = 'none';
+      btnRemoverWhatsapp.style.display   = 'none';
+      btnCancelarWhatsapp.style.display  = 'inline-block';
+      btnSalvarWhatsappEdit.style.display= 'inline-block';
     } else {
-      // Campo vazio ou novo
-      btnSalvarWhatsapp.style.display = 'inline-block';
-      btnEditarWhatsapp.style.display = 'none';
-      btnRemoverWhatsapp.style.display = 'none';
-      btnCancelarWhatsapp.style.display = 'none';
-      btnSalvarWhatsappEdit.style.display = 'none';
+      btnSalvarWhatsapp.style.display    = 'inline-block';
+      btnEditarWhatsapp.style.display    = 'none';
+      btnRemoverWhatsapp.style.display   = 'none';
+      btnCancelarWhatsapp.style.display  = 'none';
+      btnSalvarWhatsappEdit.style.display= 'none';
     }
   }
 
@@ -790,38 +893,25 @@
     atualizarEstadoWhatsapp();
   }
 
-  // Botão Editar
   btnEditarWhatsapp?.addEventListener('click', entrarEdicao);
-
-  // Botão Cancelar (volta ao valor anterior)
   btnCancelarWhatsapp?.addEventListener('click', () => {
     inputWhatsapp.value = valorOriginalWhatsapp;
     sairEdicao();
   });
-
-  // Botão Remover (limpa o valor e entra em modo edição)
   btnRemoverWhatsapp?.addEventListener('click', () => {
     if (confirm('Tem certeza de que deseja remover o número de WhatsApp?')) {
       inputWhatsapp.value = '';
       entrarEdicao();
     }
   });
-
-  // Botão Salvar (modo edição)
   btnSalvarWhatsappEdit?.addEventListener('click', () => salvarWhatsapp());
-
-  // Botão Salvar (modo novo)
   btnSalvarWhatsapp?.addEventListener('click', () => salvarWhatsapp());
 
   function salvarWhatsapp() {
     const whatsappNumero = inputWhatsapp.value.trim();
-    
-    if (!whatsappNumero) {
-      showToast('Por favor, insira um número de WhatsApp', 'error');
-      return;
-    }
+    if (!whatsappNumero) { showToast('Por favor, insira um número de WhatsApp', 'error'); return; }
 
-    const btn = document.activeElement; // Detecta qual botão foi clicado
+    const btn = document.activeElement;
     btn.disabled = true;
     const textoOriginal = btn.textContent;
     btn.textContent = '⏳ Salvando...';
@@ -831,11 +921,8 @@
 
     fetch('{% url "salvar_configuracoes" %}', {
       method: 'POST',
-      headers: {
-        'X-Requested-With': 'XMLHttpRequest',
-        'X-CSRFToken': CSRF
-      },
-      body: formData
+      headers: { 'X-Requested-With': 'XMLHttpRequest', 'X-CSRFToken': CSRF },
+      body: formData,
     })
     .then(r => r.json())
     .then(data => {
@@ -848,23 +935,13 @@
         showToast('❌ ' + (data.error || 'Erro ao salvar'), 'error');
       }
     })
-    .catch(e => {
-      console.error('Erro:', e);
-      showToast('❌ Erro na requisição', 'error');
-    })
-    .finally(() => {
-      btn.disabled = false;
-      btn.textContent = textoOriginal;
-    });
+    .catch(e => { console.error('Erro:', e); showToast('❌ Erro na requisição', 'error'); })
+    .finally(() => { btn.disabled = false; btn.textContent = textoOriginal; });
   }
 
-  // Inicializar estado
-  if (inputWhatsapp.value.trim()) {
-    inputWhatsapp.disabled = true;
-  }
+  if (inputWhatsapp.value.trim()) inputWhatsapp.disabled = true;
   atualizarEstadoWhatsapp();
 
-  // Primeiro render
   render();
 })();
 </script>

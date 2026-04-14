@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Portal de Devoluções{% endblock %}</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=Fira+Code:wght@400;500;600&display=swap" rel="stylesheet">
+    
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    
+    {% block extra_css %}{% endblock %}
+
+    <style>
+        /* Efeito de Transição de Tela */
+        .page-transition {
+            animation: fadeInPage 0.4s ease-out forwards;
+        }
+
+        @keyframes fadeInPage {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Layout Estruturado */
+        .main-layout {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        .content-container {
+            flex: 1;
+            padding: 24px;
+            background: var(--bg);
+        }
+
+        /* Loading Bar */
+        #loading-bar {
+            position: fixed;
+            top: 0; left: 0; height: 2.5px;
+            background: linear-gradient(90deg, var(--blue) 0%, #7ca3ff 50%, var(--blue) 100%);
+            background-size: 200% 100%;
+            animation: barShimmer 1.5s linear infinite;
+            width: 0; z-index: 9999;
+            border-radius: 0 2px 2px 0;
+            box-shadow: 0 0 10px rgba(29,82,245,.5);
+        }
+        @keyframes barShimmer {
+            0%   { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+    </style>
+</head>
+<body class="{% block body_class %}{% endblock %}">
+    <div id="loading-bar"></div>
+
+    <header class="topbar">
+        <div class="topbar__inner">
+            <div class="auth-logo">
+                <div class="auth-logo__icon">D</div>
+                <span class="auth-logo__text">Portal<span>Devoluções</span></span>
+            </div>
+            
+            <nav class="topbar__nav">
+                </nav>
+
+            <div class="topbar__actions">
+                <button class="dark-mode-toggle" id="theme-switcher" title="Alternar tema" aria-label="Alternar entre modo claro e escuro">
+                    <svg id="icon-moon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                    <svg id="icon-sun" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="main-layout">
+        <div class="content-container page-transition">
+            {% block content %}{% endblock %}
+        </div>
+    </main>
+
+    <script>
+        // ── Dark Mode ────────────────────────────────────────────
+        const themeBtn  = document.getElementById('theme-switcher');
+        const iconMoon  = document.getElementById('icon-moon');
+        const iconSun   = document.getElementById('icon-sun');
+
+        function applyTheme(dark) {
+            document.body.classList.toggle('dark-mode', dark);
+            if (iconMoon && iconSun) {
+                iconMoon.style.display = dark ? 'none'  : '';
+                iconSun.style.display  = dark ? ''      : 'none';
+            }
+        }
+
+        applyTheme(localStorage.getItem('darkMode') === 'true');
+
+        themeBtn?.addEventListener('click', () => {
+            const isDark = document.body.classList.toggle('dark-mode');
+            localStorage.setItem('darkMode', isDark);
+            applyTheme(isDark);
+        });
+
+        // ── Page Transition ──────────────────────────────────────
+        const loadingBar = document.getElementById('loading-bar');
+
+        // Entrada: anima a barra ao carregar a página
+        window.addEventListener('load', () => {
+            loadingBar.style.transition = 'width .4s cubic-bezier(.4,0,.2,1), opacity .3s ease .6s';
+            loadingBar.style.width = '100%';
+            setTimeout(() => { loadingBar.style.opacity = '0'; }, 600);
+            setTimeout(() => { loadingBar.style.width = '0'; loadingBar.style.opacity = '1'; loadingBar.style.transition = ''; }, 950);
+        });
+
+        // Saída: adiciona classe page-exit e inicia barra antes de navegar
+        document.addEventListener('click', function(e) {
+            const link = e.target.closest('a[href]');
+            if (!link) return;
+            const href = link.getAttribute('href');
+            if (!href || href.startsWith('#') || href.startsWith('javascript') ||
+                link.target === '_blank' || e.ctrlKey || e.metaKey || e.shiftKey) return;
+
+            e.preventDefault();
+
+            // Barra de progresso de saída
+            loadingBar.style.transition = 'width .25s ease';
+            loadingBar.style.width = '60%';
+
+            // Anima saída da página
+            document.body.classList.add('page-exit');
+
+            setTimeout(() => {
+                loadingBar.style.width = '85%';
+            }, 120);
+
+            setTimeout(() => {
+                window.location.href = href;
+            }, 300);
+        });
+    </script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

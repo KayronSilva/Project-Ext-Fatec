@@ -4,78 +4,762 @@
 {% block title %}Nova Devolução — Portal de Devoluções{% endblock %}
 
 {% block extra_css %}
+    <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=Fira+Code:wght@400;500;600&display=swap" rel="stylesheet">
     <script>
-        // Força aplicação imediata do dark-mode (evita "flash" ao carregar)
-        // Executa antes da renderização do DOM
         (function() {
             if (localStorage.getItem('darkMode') === 'true') {
-                // Aplicar ao html e body assim que possível
-                if (document.documentElement) {
-                    document.documentElement.style.colorScheme = 'dark';
-                }
-                if (document.body) {
-                    document.body.classList.add('dark-mode');
-                } else {
-                    // Se body ainda não existe, aguarda load
-                    document.addEventListener('DOMContentLoaded', function() {
-                        document.body.classList.add('dark-mode');
-                    });
-                }
+                if (document.documentElement) document.documentElement.style.colorScheme = 'dark';
+                if (document.body) document.body.classList.add('dark-mode');
+                else document.addEventListener('DOMContentLoaded', function() { document.body.classList.add('dark-mode'); });
             }
         })();
     </script>
     <style>
-        .saldo-strip { display:flex; gap:14px; margin-top:6px; flex-wrap:wrap; }
-        .saldo-item { display:flex; flex-direction:column; gap:1px; }
-        .saldo-label { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:var(--text-faint); }
-        .saldo-value { font-family:'Fira Code',monospace; font-size:13px; font-weight:600; color:var(--text-2); }
-        .saldo-value.disponivel { color:var(--blue); }
-        .saldo-value.devolvido  { color:var(--amber); }
-        .prazo-badge { display:inline-flex; align-items:center; gap:5px; padding:2px 9px; border-radius:var(--r-full); font-size:11px; font-weight:700; white-space:nowrap; }
-        .prazo-ok      { background:var(--green-bg); color:var(--green); border:1px solid var(--green-border); }
-        .prazo-warn    { background:var(--amber-bg); color:var(--amber); border:1px solid var(--amber-border); }
-        .prazo-expired { background:var(--red-bg); color:var(--red); border:1px solid var(--red-border); }
-        .foto-area { border:2px dashed var(--border-strong); border-radius:var(--r-sm); padding:14px; text-align:center; font-size:13px; color:var(--text-muted); cursor:pointer; background:var(--surface-2); font-weight:500; transition:all .16s; position:relative; }
-        .foto-area:hover { border-color:var(--blue); background:var(--blue-bg); color:var(--blue); }
-        .foto-area input { display:none; }
-        .foto-preview { display:none; position:relative; margin-top:8px; }
-        .foto-preview img { width:100%; max-height:140px; object-fit:cover; border-radius:var(--r-sm); border:1.5px solid var(--border); }
-        .foto-preview-remove { position:absolute; top:4px; right:4px; width:22px; height:22px; border-radius:50%; background:rgba(0,0,0,.55); color:#fff; border:none; cursor:pointer; font-size:14px; line-height:1; display:flex; align-items:center; justify-content:center; }
-        .foto-preview-remove:hover { background:var(--red); }
-        .td-foto-thumb { width:36px; height:36px; border-radius:var(--r-xs); object-fit:cover; border:1.5px solid var(--border); cursor:pointer; }
-        .nota-search-wrap { position:relative; }
-        .nota-search-input-wrap { position:relative; display:flex; align-items:center; }
-        .nota-search-input-wrap svg.search-icon { position:absolute; left:11px; color:var(--text-faint); pointer-events:none; transition:opacity .15s; flex-shrink:0; }
-        .nota-search-input-wrap:focus-within svg.search-icon { opacity:.7; }
-        #input-nota-busca { font-family:'Sora',sans-serif; font-size:14px; padding:9px 36px 9px 34px; border:1.5px solid var(--border-strong); border-radius:var(--r-sm); background:var(--surface-2); color:var(--text); outline:none; width:100%; transition:box-shadow .15s; }
-        #input-nota-busca:hover  { background:var(--surface); border-color:#b0b9d4; }
-        #input-nota-busca:focus  { border-color:var(--focus-ring); background:var(--surface); box-shadow:0 0 0 3px rgba(29,82,245,.12); }
-        #input-nota-busca:disabled { background:var(--surface-3); color:var(--text-muted); border-color:var(--border); cursor:not-allowed; }
-        #btn-limpar-nota { position:absolute; right:8px; width:20px; height:20px; border-radius:50%; border:none; background:var(--surface-3); color:var(--text-muted); cursor:pointer; display:none; align-items:center; justify-content:center; font-size:13px; line-height:1; transition:opacity .14s; }
-        #btn-limpar-nota:hover { background:var(--red-bg); color:var(--red-dot); }
-        #btn-limpar-nota.visible { display:flex; }
-        #nota-dropdown { display:none; position:fixed; background:var(--surface); border:1.5px solid var(--blue-border); border-radius:var(--r-sm); box-shadow:var(--shadow-md); z-index:9999; max-height:240px; overflow-y:auto; scrollbar-width:thin; }
-        #nota-dropdown.open { display:block; }
-        .nota-opt { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 14px; cursor:pointer; font-size:13.5px; color:var(--text); border-bottom:1px solid var(--border); transition:opacity .1s; }
-        .nota-opt:last-child { border-bottom:none; }
-        .nota-opt:hover, .nota-opt.highlighted { background:var(--blue-bg); }
-        .nota-opt__num { font-family:'Fira Code',monospace; font-weight:600; font-size:13px; color:var(--blue-dark); flex-shrink:0; }
-        .nota-opt__num mark { background:#fef08a; color:var(--text); border-radius:2px; padding:0 1px; }
-        .nota-opt__badge { font-size:10.5px; font-weight:600; padding:2px 8px; border-radius:var(--r-full); border:1px solid transparent; white-space:nowrap; flex-shrink:0; }
-        .nota-opt__badge--ok        { background:var(--green-bg); color:var(--green); border-color:var(--green-border); }
-        .nota-opt__badge--bloqueada { background:var(--surface-3); color:var(--text-faint); border-color:var(--border); font-style:italic; }
-        .nota-opt--bloqueada { opacity:.55; cursor:not-allowed; pointer-events:none; }
-        .nota-dropdown-empty { padding:14px 16px; font-size:13px; color:var(--text-muted); text-align:center; }
-        .nota-dropdown-count { padding:6px 14px; font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:var(--text-faint); border-bottom:1px solid var(--border); background:var(--surface-2); }
+        /* ── Reset & Page ── */
+        .page-wrapper {
+            max-width: 860px;
+            margin: 0 auto;
+            padding: 32px 20px 64px;
+            animation: fadeUp .4s ease both;
+        }
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(14px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ── Page Header ── */
+        .page-header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 20px;
+            margin-bottom: 36px;
+            flex-wrap: wrap;
+        }
+        .page-header__text h1 {
+            font-size: 26px;
+            font-weight: 700;
+            color: var(--text);
+            letter-spacing: -.4px;
+            margin: 0 0 4px;
+            line-height: 1.2;
+        }
+        .page-header__text p {
+            font-size: 14px;
+            color: var(--text-muted);
+            margin: 0;
+            line-height: 1.5;
+        }
+        .page-header__actions {
+            display: flex;
+            gap: 10px;
+            flex-shrink: 0;
+            flex-wrap: wrap;
+        }
+
+        /* ── Steps ── */
+        .steps {
+            display: flex;
+            align-items: stretch;
+            gap: 0;
+            margin-bottom: 32px;
+            background: var(--surface-2);
+            border: 1.5px solid var(--border);
+            border-radius: 14px;
+            overflow: hidden;
+            padding: 0;
+        }
+        .step {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 14px 20px;
+            flex: 1;
+            border-right: 1px solid var(--border);
+            position: relative;
+            transition: background .2s;
+            cursor: default;
+        }
+        .step:last-child { border-right: none; }
+        .step-num {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: var(--surface-3);
+            color: var(--text-faint);
+            font-size: 12px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            transition: all .25s;
+            border: 1.5px solid var(--border-strong);
+        }
+        .step-label {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-muted);
+            line-height: 1.2;
+            transition: color .2s;
+        }
+        .step-sub {
+            font-size: 11px;
+            color: var(--text-faint);
+            margin-top: 1px;
+            font-weight: 400;
+        }
+        .step.active {
+            background: var(--blue-bg);
+        }
+        .step.active .step-num {
+            background: var(--blue);
+            color: #fff;
+            border-color: var(--blue);
+            box-shadow: 0 0 0 4px rgba(29,82,245,.15);
+        }
+        .step.active .step-label { color: var(--blue); }
+        .step.active .step-sub   { color: var(--blue-dark); opacity: .7; }
+        .step.done .step-num {
+            background: var(--green);
+            color: #fff;
+            border-color: var(--green);
+        }
+        .step.done .step-num::before { content: '✓'; }
+        .step.done .step-label { color: var(--green); }
+
+        /* ── Cards ── */
+        .card {
+            background: var(--surface);
+            border: 1.5px solid var(--border);
+            border-radius: 16px;
+            overflow: hidden;
+            margin-bottom: 16px;
+            transition: border-color .2s, box-shadow .2s;
+        }
+        .card--padded { padding: 0; }
+        .card-inner { padding: 24px; }
+        .card-title-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 18px 24px 0;
+            margin-bottom: 20px;
+        }
+        .card-title-bar h2 {
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--text);
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .card-title-bar h2 .card-icon {
+            width: 30px;
+            height: 30px;
+            border-radius: 8px;
+            background: var(--blue-bg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--blue);
+            flex-shrink: 0;
+        }
+        .card.locked {
+            opacity: .6;
+            pointer-events: none;
+            border-style: dashed;
+        }
+
+        /* ── Badges ── */
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            padding: 3px 10px;
+            border-radius: 999px;
+            letter-spacing: .02em;
+        }
+        .badge-ok   { background: var(--green-bg); color: var(--green); border: 1px solid var(--green-border); }
+        .badge-lock { background: var(--surface-3); color: var(--text-faint); border: 1px solid var(--border); }
+
+        /* ── Fields ── */
+        .field-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            padding: 0 24px 24px;
+        }
+        .field-row.single { grid-template-columns: 1fr; }
+        .field { display: flex; flex-direction: column; gap: 6px; }
+        .field label {
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .06em;
+            color: var(--text-muted);
+        }
+        .field select,
+        .field input[type="text"],
+        .field input[type="number"],
+        .field textarea {
+            font-family: 'Sora', sans-serif;
+            font-size: 14px;
+            padding: 10px 14px;
+            border: 1.5px solid var(--border-strong);
+            border-radius: 10px;
+            background: var(--surface-2);
+            color: var(--text);
+            outline: none;
+            transition: border-color .15s, box-shadow .15s, background .15s;
+            -webkit-appearance: none;
+        }
+        .field select:hover,
+        .field input:hover { background: var(--surface); border-color: var(--text-muted); }
+        .field select:focus,
+        .field input:focus,
+        .field textarea:focus {
+            border-color: var(--blue);
+            background: var(--surface);
+            box-shadow: 0 0 0 3px rgba(29,82,245,.12);
+        }
+        .field-hint {
+            font-size: 12px;
+            color: var(--text-muted);
+            line-height: 1.4;
+            min-height: 16px;
+        }
+        .field-hint.ok   { color: var(--green); }
+        .field-hint.warn { color: var(--amber); }
+        .field-hint.err  { color: var(--red); }
+        .field-hint.info { color: var(--blue); }
+
+        /* ── File area ── */
+        .file-area {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 13px 16px;
+            border: 2px dashed var(--border-strong);
+            border-radius: 10px;
+            background: var(--surface-2);
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            transition: all .16s;
+        }
+        .file-area:hover { border-color: var(--blue); background: var(--blue-bg); color: var(--blue); }
+        .file-area input { display: none; }
+
+        /* ── Nota search ── */
+        .nota-search-wrap { position: relative; }
+        .nota-search-input-wrap { position: relative; display: flex; align-items: center; }
+        .nota-search-input-wrap svg.search-icon {
+            position: absolute; left: 12px;
+            color: var(--text-faint); pointer-events: none;
+        }
+        #input-nota-busca {
+            font-family: 'Sora', sans-serif;
+            font-size: 14px;
+            padding: 10px 38px 10px 36px;
+            border: 1.5px solid var(--border-strong);
+            border-radius: 10px;
+            background: var(--surface-2);
+            color: var(--text);
+            outline: none;
+            width: 100%;
+            transition: all .15s;
+        }
+        #input-nota-busca:hover  { background: var(--surface); border-color: var(--text-muted); }
+        #input-nota-busca:focus  { border-color: var(--blue); background: var(--surface); box-shadow: 0 0 0 3px rgba(29,82,245,.12); }
+        #input-nota-busca:disabled { opacity: .45; cursor: not-allowed; }
+        #btn-limpar-nota {
+            position: absolute; right: 10px;
+            width: 22px; height: 22px;
+            border-radius: 50%;
+            border: none;
+            background: var(--surface-3);
+            color: var(--text-muted);
+            cursor: pointer;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            transition: all .14s;
+        }
+        #btn-limpar-nota:hover { background: var(--red-bg); color: var(--red); }
+        #btn-limpar-nota.visible { display: flex; }
+
+        /* ── Dropdown ── */
+        #nota-dropdown {
+            display: none;
+            position: fixed;
+            background: var(--surface);
+            border: 1.5px solid var(--blue-border);
+            border-radius: 12px;
+            box-shadow: 0 16px 48px rgba(0,0,0,.14), 0 4px 12px rgba(0,0,0,.08);
+            z-index: 9999;
+            max-height: 260px;
+            overflow-y: auto;
+            scrollbar-width: thin;
+        }
+        #nota-dropdown.open { display: block; }
+        .nota-opt {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            padding: 11px 16px;
+            cursor: pointer;
+            font-size: 13.5px;
+            color: var(--text);
+            border-bottom: 1px solid var(--border);
+            transition: background .1s;
+        }
+        .nota-opt:last-child { border-bottom: none; }
+        .nota-opt:hover, .nota-opt.highlighted { background: var(--blue-bg); }
+        .nota-opt__num { font-family: 'Fira Code', monospace; font-weight: 600; font-size: 13px; color: var(--blue-dark); }
+        .nota-opt__num mark { background: #fef08a; color: var(--text); border-radius: 2px; padding: 0 2px; }
+        .nota-opt__badge { font-size: 10.5px; font-weight: 600; padding: 2px 9px; border-radius: 999px; border: 1px solid transparent; white-space: nowrap; }
+        .nota-opt__badge--ok        { background: var(--green-bg); color: var(--green); border-color: var(--green-border); }
+        .nota-opt__badge--bloqueada { background: var(--surface-3); color: var(--text-faint); border-color: var(--border); font-style: italic; }
+        .nota-opt--bloqueada { opacity: .45; cursor: not-allowed; pointer-events: none; }
+        .nota-dropdown-empty { padding: 16px; font-size: 13px; color: var(--text-muted); text-align: center; }
+        .nota-dropdown-count { padding: 7px 16px; font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--text-faint); border-bottom: 1px solid var(--border); background: var(--surface-2); border-radius: 12px 12px 0 0; }
+
+        /* ── Products section ── */
+        .products-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 18px 24px 16px;
+            border-bottom: 1px solid var(--border);
+        }
+        .products-header h2 {
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--text);
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        /* ── Table ── */
+        .table-wrapper {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13.5px;
+        }
+        thead th {
+            padding: 10px 14px;
+            text-align: left;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .06em;
+            color: var(--text-faint);
+            background: var(--surface-2);
+            border-bottom: 1.5px solid var(--border);
+            white-space: nowrap;
+        }
+        tbody td {
+            padding: 12px 14px;
+            border-bottom: 1px solid var(--border);
+            vertical-align: middle;
+            color: var(--text);
+        }
+        tbody tr:last-child td { border-bottom: none; }
+        tbody tr { transition: background .12s; }
+        tbody tr:hover { background: var(--surface-2); }
+        tbody tr.selected { background: var(--blue-bg); }
+        .td-code { font-family: 'Fira Code', monospace; font-size: 12.5px; color: var(--text-muted); font-weight: 500; }
+        .td-qty  { text-align: center; font-weight: 700; font-size: 15px; color: var(--text); }
+        .td-actions { text-align: right; white-space: nowrap; }
+        .motivo-badge {
+            display: inline-block;
+            font-size: 11px;
+            font-weight: 600;
+            padding: 2px 9px;
+            border-radius: 999px;
+            background: var(--surface-3);
+            color: var(--text-muted);
+            border: 1px solid var(--border);
+        }
+
+        /* ── Bulk actions ── */
+        .bulk-actions {
+            display: none;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 16px;
+            background: var(--blue-bg);
+            border-bottom: 1px solid var(--blue-border);
+            font-size: 13px;
+        }
+        .bulk-actions.visible { display: flex; }
+        .bulk-label { font-weight: 600; color: var(--blue); flex: 1; font-size: 13px; }
+
+        /* ── Empty state ── */
+        .empty-state { padding: 40px 24px; text-align: center; }
+        .empty-state-icon { font-size: 36px; margin-bottom: 12px; opacity: .4; }
+        .empty-state p { font-size: 13.5px; color: var(--text-muted); line-height: 1.6; margin: 0; }
+
+        /* ── Saldo strip ── */
+        .saldo-strip { display: flex; gap: 16px; margin-top: 8px; flex-wrap: wrap; }
+        .saldo-item  { display: flex; flex-direction: column; gap: 2px; }
+        .saldo-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--text-faint); }
+        .saldo-value { font-family: 'Fira Code', monospace; font-size: 14px; font-weight: 600; color: var(--text-2); }
+        .saldo-value.disponivel { color: var(--blue); }
+        .saldo-value.devolvido  { color: var(--amber); }
+
+        /* ── Foto area ── */
+        .foto-area {
+            border: 2px dashed var(--border-strong);
+            border-radius: 10px;
+            padding: 16px;
+            text-align: center;
+            font-size: 13px;
+            color: var(--text-muted);
+            cursor: pointer;
+            background: var(--surface-2);
+            font-weight: 500;
+            transition: all .16s;
+            position: relative;
+        }
+        .foto-area:hover { border-color: var(--blue); background: var(--blue-bg); color: var(--blue); }
+        .foto-area input { display: none; }
+        .foto-preview { display: none; position: relative; margin-top: 10px; }
+        .foto-preview img { width: 100%; max-height: 150px; object-fit: cover; border-radius: 8px; border: 1.5px solid var(--border); }
+        .foto-preview-remove { position: absolute; top: 6px; right: 6px; width: 24px; height: 24px; border-radius: 50%; background: rgba(0,0,0,.6); color: #fff; border: none; cursor: pointer; font-size: 15px; display: flex; align-items: center; justify-content: center; }
+        .foto-preview-remove:hover { background: var(--red); }
+        .td-foto-thumb { width: 36px; height: 36px; border-radius: 6px; object-fit: cover; border: 1.5px solid var(--border); cursor: zoom-in; }
+
+        /* ── Buttons ── */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            padding: 9px 18px;
+            border-radius: 10px;
+            font-family: 'Sora', sans-serif;
+            font-size: 13.5px;
+            font-weight: 600;
+            cursor: pointer;
+            border: 1.5px solid transparent;
+            transition: all .15s;
+            white-space: nowrap;
+            text-decoration: none;
+        }
+        .btn:disabled { opacity: .45; cursor: not-allowed; pointer-events: none; }
+        .btn-primary {
+            background: var(--blue);
+            color: #fff;
+            border-color: var(--blue);
+        }
+        .btn-primary:hover { filter: brightness(1.08); box-shadow: 0 4px 16px rgba(29,82,245,.3); transform: translateY(-1px); }
+        .btn-primary:active { transform: translateY(0); }
+        .btn-ghost {
+            background: var(--surface-2);
+            color: var(--text-muted);
+            border-color: var(--border-strong);
+        }
+        .btn-ghost:hover { background: var(--surface-3); color: var(--text); border-color: var(--text-muted); }
+        .btn-danger {
+            background: var(--red-bg);
+            color: var(--red);
+            border-color: var(--red-border, var(--border));
+        }
+        .btn-danger:hover { background: var(--red); color: #fff; }
+        .btn-sm { padding: 6px 12px; font-size: 12px; border-radius: 8px; gap: 5px; }
+
+        /* ── Submit row ── */
+        .submit-row {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 12px;
+            margin-top: 8px;
+            padding: 20px 0 0;
+        }
+
+        /* ── Alerta nota ── */
+        .alerta-nota-devolvida {
+            margin: 0 24px 20px;
+            padding: 12px 16px;
+            background: var(--amber-bg);
+            border: 1px solid var(--amber-border);
+            border-radius: 10px;
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            font-size: 13px;
+            color: var(--amber);
+        }
+
+        /* ── Modal ── */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,.55);
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
+            z-index: 10000;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .modal-overlay.open { display: flex; animation: fadeIn .2s ease; }
+        @keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
+        .modal {
+            background: var(--surface);
+            border: 1.5px solid var(--border);
+            border-radius: 20px;
+            width: 100%;
+            max-width: 520px;
+            max-height: 90vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 32px 80px rgba(0,0,0,.25), 0 8px 24px rgba(0,0,0,.15);
+            animation: slideUp .22s ease both;
+        }
+        @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .modal-header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 22px 24px 18px;
+            border-bottom: 1px solid var(--border);
+        }
+        .modal-header h3 { font-size: 17px; font-weight: 700; color: var(--text); margin: 0 0 3px; }
+        .modal-header p  { font-size: 13px; color: var(--text-muted); margin: 0; }
+        .modal-close {
+            width: 30px; height: 30px;
+            border-radius: 8px;
+            border: 1.5px solid var(--border);
+            background: var(--surface-2);
+            color: var(--text-muted);
+            cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0;
+            transition: all .15s;
+        }
+        .modal-close:hover { background: var(--red-bg); color: var(--red); border-color: var(--red-border, var(--border)); }
+        .modal-body {
+            padding: 20px 24px;
+            overflow-y: auto;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+        .modal-footer {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 10px;
+            padding: 16px 24px;
+            border-top: 1px solid var(--border);
+            background: var(--surface-2);
+        }
+        .modal-product-info {
+            display: flex;
+            align-items: flex-start;
+            gap: 14px;
+            padding: 14px 16px;
+            background: var(--surface-2);
+            border: 1.5px solid var(--border);
+            border-radius: 12px;
+        }
+        .modal-product-icon {
+            font-size: 28px;
+            width: 44px;
+            height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--blue-bg);
+            border-radius: 10px;
+            flex-shrink: 0;
+        }
+        .modal-product-code { font-family: 'Fira Code', monospace; font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 2px; }
+        .modal-product-name { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 10px; line-height: 1.3; }
+        .modal-field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+
+        /* ── Qty stepper ── */
+        .qty-stepper {
+            display: flex;
+            align-items: center;
+            border: 1.5px solid var(--border-strong);
+            border-radius: 10px;
+            overflow: hidden;
+            background: var(--surface-2);
+        }
+        .qty-btn {
+            width: 38px;
+            height: 42px;
+            border: none;
+            background: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 18px;
+            font-weight: 400;
+            transition: all .15s;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .qty-btn:hover { background: var(--surface-3); color: var(--text); }
+        .qty-input {
+            flex: 1;
+            text-align: center;
+            border: none !important;
+            border-left: 1px solid var(--border) !important;
+            border-right: 1px solid var(--border) !important;
+            border-radius: 0 !important;
+            background: var(--surface) !important;
+            box-shadow: none !important;
+            font-size: 15px !important;
+            font-weight: 700 !important;
+            padding: 0 8px !important;
+            height: 42px;
+            color: var(--text) !important;
+        }
+
+        /* ── Toast ── */
+        .toast-container {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            z-index: 99999;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .toast {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 18px;
+            border-radius: 12px;
+            font-size: 13.5px;
+            font-weight: 600;
+            box-shadow: 0 8px 24px rgba(0,0,0,.15);
+            animation: toastIn .25s ease, toastOut .3s ease 2.5s both;
+            min-width: 220px;
+            max-width: 320px;
+        }
+        @keyframes toastIn  { from { opacity: 0; transform: translateY(10px) scale(.95); } to { opacity: 1; transform: none; } }
+        @keyframes toastOut { to   { opacity: 0; transform: translateY(6px) scale(.97); } }
+        .toast.success { background: var(--green-bg); color: var(--green); border: 1px solid var(--green-border); }
+        .toast.error   { background: var(--red-bg);   color: var(--red);   border: 1px solid var(--red-border, var(--border)); }
+
+        /* ── Messages ── */
+        .messages { margin-top: 16px; }
+        .message { padding: 12px 16px; border-radius: 10px; font-size: 13.5px; margin-bottom: 8px; }
+        .message.success { background: var(--green-bg); color: var(--green); border: 1px solid var(--green-border); }
+        .message.error   { background: var(--red-bg); color: var(--red); }
+        .message.info    { background: var(--blue-bg); color: var(--blue); }
+        .message.warning { background: var(--amber-bg); color: var(--amber); border: 1px solid var(--amber-border); }
+
+        /* ── Info help block ── */
+        .info-help {
+            padding: 10px 14px;
+            background: var(--blue-bg);
+            border-radius: 8px;
+            border: 1px solid var(--blue-border);
+            font-size: 12.5px;
+            color: var(--blue);
+        }
+
+        /* ── Mobile card list ── */
+        .produto-lista { display: none; }
+        .produto-card {
+            border: 1.5px solid var(--border);
+            border-radius: 12px;
+            padding: 14px;
+            margin-bottom: 10px;
+            background: var(--surface);
+            transition: all .15s;
+        }
+        .produto-card.selected { border-color: var(--blue); background: var(--blue-bg); }
+        .pcard-top { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 10px; }
+        .pcard-info { flex: 1; min-width: 0; }
+        .pcard-desc { font-size: 14px; font-weight: 600; color: var(--text); }
+        .pcard-code { font-family: 'Fira Code', monospace; font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+        .pcard-qty-badge { display: flex; flex-direction: column; align-items: center; }
+        .pcard-qty-badge strong { font-size: 18px; color: var(--text); }
+        .pcard-qty-badge span   { font-size: 10px; color: var(--text-faint); }
+        .pcard-meta   { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+        .pcard-obs    { font-size: 12px; color: var(--text-muted); }
+        .pcard-actions { display: flex; gap: 8px; }
+
+        /* ── Divider ── */
+        .card-divider { height: 1px; background: var(--border); margin: 0 24px; }
+
+        /* ── Search type select inline ── */
+        .search-type-row {
+            display: flex;
+            gap: 10px;
+            align-items: flex-end;
+            margin-bottom: 10px;
+        }
+        .search-type-row select {
+            padding: 8px 12px;
+            border: 1.5px solid var(--border-strong);
+            border-radius: 8px;
+            background: var(--surface-2);
+            color: var(--text);
+            font-size: 13px;
+            cursor: pointer;
+            font-family: 'Sora', sans-serif;
+            outline: none;
+            transition: all .15s;
+        }
+        .search-type-row select:hover { border-color: var(--text-muted); }
+
+        /* ── Responsive ── */
+        @media (max-width: 640px) {
+            .page-wrapper { padding: 20px 14px 48px; }
+            .steps { overflow-x: auto; }
+            .step  { min-width: 110px; }
+            .step-label { font-size: 11.5px; }
+            .step-sub   { display: none; }
+            .field-row  { grid-template-columns: 1fr; }
+            .table-wrapper table { display: none; }
+            .produto-lista { display: block; }
+            .modal-field-row { grid-template-columns: 1fr; }
+            .page-header { flex-direction: column; gap: 14px; }
+        }
+
+        /* ── Screen reader only ── */
+        .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
     </style>
 {% endblock %}
 
 {% block content %}
 <div class="page-wrapper">
+
+    <!-- Header -->
     <div class="page-header">
         <div class="page-header__text">
-            <h1>Formulário de Devolução</h1>
-            <p>Selecione a empresa ou pessoa, depois escolha a nota fiscal e os produtos para devolver.</p>
+            <h1>Nova Devolução</h1>
+            <p>Selecione a empresa, a nota fiscal e os produtos a devolver.</p>
         </div>
         <div class="page-header__actions">
             <a href="{% url 'acompanhar_devolucoes' %}" class="btn btn-ghost">
@@ -84,21 +768,32 @@
             </a>
             {% if whatsapp_numero %}
             <a href="https://wa.me/{{ whatsapp_numero|cut:' '|cut:'-'|cut:'('|cut:')' }}" class="btn btn-ghost" target="_blank" title="Entrar em contato via WhatsApp">
-                💬 Fale conosco
+                💬 Suporte
             </a>
             {% endif %}
         </div>
     </div>
 
-    <!-- FIX A11Y: indicador de progresso — não é navegação, role="list" semântico -->
+    <!-- Steps -->
     <div class="steps" role="list" aria-label="Etapas do formulário">
-        <div class="step active" id="step-1" role="listitem"><div class="step-num" aria-hidden="true">1</div><div><div class="step-label">Empresa / Pessoa</div><div class="step-sub">Selecionar</div></div></div>
-        <div class="step" id="step-2" role="listitem"><div class="step-num" aria-hidden="true">2</div><div><div class="step-label">Nota Fiscal</div><div class="step-sub">Selecionar nota</div></div></div>
-        <div class="step" id="step-3" role="listitem"><div class="step-num" aria-hidden="true">3</div><div><div class="step-label">Produtos</div><div class="step-sub">Itens a devolver</div></div></div>
-        <div class="step" id="step-4" role="listitem"><div class="step-num" aria-hidden="true">4</div><div><div class="step-label">Revisão</div><div class="step-sub">Confirmar e enviar</div></div></div>
+        <div class="step active" id="step-1" role="listitem">
+            <div class="step-num" aria-hidden="true">1</div>
+            <div><div class="step-label">Empresa / Pessoa</div><div class="step-sub">Selecionar</div></div>
+        </div>
+        <div class="step" id="step-2" role="listitem">
+            <div class="step-num" aria-hidden="true">2</div>
+            <div><div class="step-label">Nota Fiscal</div><div class="step-sub">Selecionar nota</div></div>
+        </div>
+        <div class="step" id="step-3" role="listitem">
+            <div class="step-num" aria-hidden="true">3</div>
+            <div><div class="step-label">Produtos</div><div class="step-sub">Itens a devolver</div></div>
+        </div>
+        <div class="step" id="step-4" role="listitem">
+            <div class="step-num" aria-hidden="true">4</div>
+            <div><div class="step-label">Revisão</div><div class="step-sub">Confirmar</div></div>
+        </div>
     </div>
 
-    <!-- FIX A11Y: <main> landmark — leitores de tela podem pular direto para o conteúdo principal -->
     <main>
     <form method="POST" enctype="multipart/form-data" id="form-devolucao">
         {% csrf_token %}
@@ -106,13 +801,18 @@
         <input type="hidden" name="action" id="action_input" value="enviar">
         <input type="hidden" name="numero_nota" id="hidden_numero_nota" value="">
 
-        <!-- Step 1 -->
+        <!-- Step 1 — Cliente -->
         <div class="card card--padded" id="card-cliente">
-            <div class="card-title">
-                Empresa / Pessoa
+            <div class="card-title-bar">
+                <h2>
+                    <span class="card-icon" aria-hidden="true">
+                        <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 7a3 3 0 100-6 3 3 0 000 6z"/><path d="M1.5 13.5s0-3 6-3 6 3 6 3"/></svg>
+                    </span>
+                    Empresa / Pessoa
+                </h2>
                 <span class="badge badge-ok" id="badge-cliente" style="display:none">✓ Selecionada</span>
             </div>
-            <div class="field-row">
+            <div class="field-row single">
                 <div class="field">
                     <label for="id_cliente_vinculado">Selecione a empresa ou pessoa</label>
                     {{ devolucao_form.cliente_vinculado }}
@@ -121,78 +821,95 @@
             </div>
         </div>
 
-        <!-- Step 2 -->
+        <!-- Step 2 — Nota Fiscal -->
         <div class="card card--padded locked" id="card-nota">
-            <div class="card-title">
-                Nota Fiscal
-                <span class="badge badge-lock" id="badge-nota-lock">🔒 Selecione empresa/pessoa</span>
-                <span class="badge badge-ok"   id="badge-nota-ok"   style="display:none">✓ Selecionada</span>
+            <div class="card-title-bar">
+                <h2>
+                    <span class="card-icon" aria-hidden="true">
+                        <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="1" width="11" height="13" rx="1.5"/><path d="M5 5h5M5 8h5M5 11h3"/></svg>
+                    </span>
+                    Nota Fiscal
+                </h2>
+                <div style="display:flex;gap:8px;align-items:center">
+                    <span class="badge badge-lock" id="badge-nota-lock">🔒 Selecione empresa/pessoa</span>
+                    <span class="badge badge-ok"   id="badge-nota-ok" style="display:none">✓ Selecionada</span>
+                </div>
             </div>
             <div class="field-row">
                 <div class="field">
-                    <div style="display:flex; gap:10px; margin-bottom:8px; align-items:flex-end">
-                        <div style="flex:1; min-width:140px">
-                            <label for="select-tipo-busca" style="display:block; margin-bottom:6px; font-weight:600; font-size:13px">Buscar por:</label>
-                            <select id="select-tipo-busca" style="width:100%; padding:8px; border:1.5px solid var(--border-strong); border-radius:var(--r-sm); background:var(--surface-2); color:var(--text); font-size:13px; cursor:pointer">
-                                <option value="nota">📋 Nota Fiscal</option>
-                                <option value="produto">📦 Produto</option>
-                            </select>
-                        </div>
+                    <label>Pesquisar nota</label>
+                    <div class="search-type-row">
+                        <select id="select-tipo-busca" style="flex:1" aria-label="Tipo de busca">
+                            <option value="nota">📋 Por Nota Fiscal</option>
+                            <option value="produto">📦 Por Produto</option>
+                        </select>
                     </div>
-                    <label for="input-nota-busca">Pesquisar</label>
-                    <!-- FIX A11Y: label sr-only para o select oculto (sem label visível associada) -->
-                    <label for="select-nota" class="sr-only">Nota Fiscal (select)</label>
+                    <label for="input-nota-busca" class="sr-only">Buscar nota</label>
+                    <label for="select-nota"      class="sr-only">Nota Fiscal</label>
                     <select id="select-nota" style="display:none" disabled>
                         <option value="">— Selecione empresa/pessoa primeiro —</option>
                     </select>
                     <div class="nota-search-wrap" id="nota-search-wrap">
                         <div class="nota-search-input-wrap">
                             <svg class="search-icon" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="6" cy="6" r="5"/><path d="m10.5 10.5 2.5 2.5" stroke-linecap="round"/></svg>
-                            <input type="text" id="input-nota-busca" placeholder="Selecione empresa/pessoa primeiro…" autocomplete="off" disabled aria-label="Buscar" aria-autocomplete="list" aria-controls="nota-dropdown">
+                            <input type="text" id="input-nota-busca" placeholder="Selecione empresa/pessoa primeiro…" autocomplete="off" disabled aria-label="Buscar nota" aria-autocomplete="list" aria-controls="nota-dropdown">
                             <button type="button" id="btn-limpar-nota" title="Limpar seleção" aria-label="Limpar seleção">×</button>
                         </div>
-                        <div id="nota-dropdown" role="listbox" aria-label="Resultados disponíveis"></div>
+                        <div id="nota-dropdown" role="listbox" aria-label="Notas disponíveis"></div>
                     </div>
                     <div class="field-hint" id="msg-nota"></div>
-                    <div class="field-hint info-help" id="msg-nota-help" style="display:none; margin-top: 10px; padding: 8px; background-color: var(--blue-bg); border-radius: 4px; font-size: 12px;">
-                        <strong>💡 Dica:</strong> Se não vê nenhuma nota, verifique se foi importada no painel administrativo ou contate o suporte.
+                    <div class="info-help" id="msg-nota-help" style="display:none;margin-top:10px">
+                        <strong>💡 Dica:</strong> Se não vê nenhuma nota, verifique se foi importada no painel ou contacte o suporte.
                     </div>
                 </div>
                 <div class="field">
-                    <label for="arquivo_pdf">Anexar PDF <span style="font-weight:400;text-transform:none;color:var(--text-muted)">(opcional)</span></label>
+                    <label for="arquivo_pdf">
+                        Anexar PDF
+                        <span style="font-weight:400;text-transform:none;color:var(--text-muted)"> — opcional</span>
+                    </label>
                     <label class="file-area" id="file-area">
                         <input type="file" name="arquivo_pdf" accept=".pdf" id="arquivo_pdf">
-                        <span id="file-label">📎 Clique para anexar PDF da nota</span>
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M9 1H3.5A1.5 1.5 0 002 2.5v11A1.5 1.5 0 003.5 15h9A1.5 1.5 0 0014 13.5V6L9 1z"/><path d="M9 1v5h5"/></svg>
+                        <span id="file-label">Clique para anexar PDF da nota</span>
                     </label>
                 </div>
             </div>
         </div>
 
-        <!-- Step 3 -->
+        <!-- Step 3 — Produtos -->
         <div class="card card--padded" id="card-produtos" style="display:none">
             <div class="products-header">
-                <div class="card-title" style="margin-bottom:0">
+                <h2>
+                    <span class="card-icon" aria-hidden="true">
+                        <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="13" height="10" rx="1.5"/><path d="M5 4V3a2 2 0 014 0v1"/></svg>
+                    </span>
                     Produtos para devolução
                     <span class="badge badge-ok" id="badge-produtos" style="display:none">0 itens</span>
-                </div>
-                <button type="button" class="btn btn-primary" id="btn-abrir-modal" disabled aria-haspopup="dialog">
+                </h2>
+                <button type="button" class="btn btn-primary btn-sm" id="btn-abrir-modal" disabled aria-haspopup="dialog">
                     <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 1v10M1 6h10"/></svg>
                     Adicionar produto
                 </button>
             </div>
+
             <div class="bulk-actions" id="bulk-actions" role="toolbar" aria-label="Ações em massa">
                 <span class="bulk-label" id="bulk-label">0 selecionados</span>
                 <button type="button" class="btn btn-danger btn-sm" id="btn-descartar-selecionados">🗑 Remover</button>
-                <button type="button" class="btn btn-ghost btn-sm"  id="btn-desmarcar">Desmarcar</button>
+                <button type="button" class="btn btn-ghost btn-sm" id="btn-desmarcar">Desmarcar</button>
             </div>
+
             <div class="table-wrapper">
                 <table aria-label="Produtos adicionados para devolução">
                     <thead>
                         <tr>
-                            <th style="width:36px;text-align:center"><input type="checkbox" id="chk-todos" aria-label="Selecionar todos os produtos"></th>
-                            <th>Código</th><th>Descrição</th>
+                            <th style="width:36px;text-align:center">
+                                <input type="checkbox" id="chk-todos" aria-label="Selecionar todos os produtos">
+                            </th>
+                            <th>Código</th>
+                            <th>Descrição</th>
                             <th style="text-align:center">Qtd</th>
-                            <th>Motivo</th><th>Observação</th>
+                            <th>Motivo</th>
+                            <th>Observação</th>
                             <th style="text-align:center">Foto</th>
                             <th style="text-align:right">Ações</th>
                         </tr>
@@ -209,9 +926,11 @@
                     </tbody>
                 </table>
             </div>
+
             <div class="produto-lista" id="produto-lista" aria-label="Produtos adicionados"></div>
         </div>
 
+        <!-- Submit -->
         <div class="submit-row">
             <button type="button" class="btn btn-ghost" onclick="window.history.back()">Cancelar</button>
             <button type="submit" name="action" value="enviar" class="btn btn-primary" id="btn-enviar" disabled>
@@ -221,17 +940,18 @@
         </div>
 
         {% if messages %}
-        <div class="messages" role="alert" aria-live="polite" style="margin-top:16px">
+        <div class="messages" role="alert" aria-live="polite" style="margin-top:8px">
             {% for message in messages %}
             <div class="message {{ message.tags }}">{{ message }}</div>
             {% endfor %}
         </div>
         {% endif %}
+
     </form>
     </main>
 </div>
 
-<!-- Modal produto -->
+<!-- ── Modal produto ── -->
 <div class="modal-overlay" id="modal-overlay" aria-hidden="true">
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title" aria-describedby="modal-subtitle">
         <div class="modal-header">
@@ -277,17 +997,23 @@
                 </div>
             </div>
             <div class="field">
-                <label for="modal-observacao">Observação <span style="font-weight:400;text-transform:none;color:var(--text-muted)">(opcional)</span></label>
-                <textarea id="modal-observacao" rows="2" style="resize:vertical" placeholder="Detalhe adicional…"></textarea>
+                <label for="modal-observacao">
+                    Observação
+                    <span style="font-weight:400;text-transform:none;color:var(--text-muted)"> — opcional</span>
+                </label>
+                <textarea id="modal-observacao" rows="2" style="resize:vertical" placeholder="Detalhe adicional sobre o problema…"></textarea>
             </div>
             <div class="field">
-                <label for="modal-foto">Foto do produto <span style="font-weight:400;text-transform:none;color:var(--text-muted)">(opcional — mostra o defeito)</span></label>
+                <label for="modal-foto">
+                    Foto do defeito
+                    <span style="font-weight:400;text-transform:none;color:var(--text-muted)"> — opcional</span>
+                </label>
                 <label class="foto-area" id="foto-area-label">
                     <input type="file" id="modal-foto" accept="image/*">
                     <span id="foto-area-text">📷 Clique para anexar foto do defeito</span>
                 </label>
                 <div class="foto-preview" id="foto-preview">
-                    <img id="foto-preview-img" src="" alt="Pré-visualização da foto do produto" width="400" height="140">
+                    <img id="foto-preview-img" src="" alt="Pré-visualização da foto do produto" width="400" height="150">
                     <button type="button" class="foto-preview-remove" id="btn-remover-foto" aria-label="Remover foto">×</button>
                 </div>
             </div>
@@ -301,6 +1027,7 @@
 
 <div class="toast-container" id="toast-container" aria-live="polite" aria-atomic="true"></div>
 
+<!-- ── JavaScript (original preservado) ── -->
 <script>
 (function () {
   let produtos      = {{ produtos|default:"[]"|safe }};
@@ -312,36 +1039,19 @@
   let notaIdAtual    = '';
   let notasCarregadas = [];
   let highlightedIndex = -1;
-  let clienteVinculadoIdAtual = ''; // NEW: rastreia cliente_vinculado selecionado
+  let clienteVinculadoIdAtual = '';
 
-  // FIX #13: wrapper de fetch com detecção de sessão expirada
   async function apiFetch(url, options = {}) {
     const resp = await fetch(url, options);
-    
-    // Se recebeu 401, é realmente falta de autenticação
     if (resp.status === 401) {
       try {
         const data = await resp.clone().json();
-        if (data.session_expired) {
-          alert('Sua sessão expirou. A página será recarregada.');
-          window.location.reload();
-          return null;
-        }
-      } catch (e) {
-        // Se não conseguir fazer parse, seja conservador
-        alert('Sua sessão expirou. A página será recarregada.');
-        window.location.reload();
-        return null;
-      }
+        if (data.session_expired) { alert('Sua sessão expirou. A página será recarregada.'); window.location.reload(); return null; }
+      } catch (e) { alert('Sua sessão expirou. A página será recarregada.'); window.location.reload(); return null; }
     }
-    
-    // Para 403 (proibido), apenas retorna a resposta sem recarregar
-    // O código da view vai lidar com isso
-    
     return resp;
   }
 
-  /* ── Utilidades ── */
   function toast(msg, type = 'success') {
     const el = document.createElement('div');
     el.className = `toast ${type}`;
@@ -374,9 +1084,6 @@
     document.getElementById('card-nota').appendChild(el);
   }
 
-  /* ── Step 1: documento ── */
-  const campoDocumento = document.getElementById('id_documento');
-  const campoNome      = document.getElementById('id_nome_exibicao');
   const cardNota       = document.getElementById('card-nota');
   const selectNota     = document.getElementById('select-nota');
   const inputNotaBusca = document.getElementById('input-nota-busca');
@@ -387,10 +1094,10 @@
 
   function lockNota() {
     cardNota.classList.add('locked');
-    selectNota.disabled       = true;
-    inputNotaBusca.disabled   = true;
-    inputNotaBusca.value      = '';
-    inputNotaBusca.placeholder = 'Informe o CPF/CNPJ primeiro…';
+    selectNota.disabled = true;
+    inputNotaBusca.disabled = true;
+    inputNotaBusca.value = '';
+    inputNotaBusca.placeholder = 'Informe a empresa/pessoa primeiro…';
     btnLimparNota.classList.remove('visible');
     fecharDropdown();
     notasCarregadas = [];
@@ -410,93 +1117,58 @@
     produtos = []; syncJson(); renderLista();
   }
 
-  // NEW: carrega notas usando cliente_vinculado_id (nova API)
   function carregarNotas(clienteVinculadoId) {
     hint('msg-nota', '🔄 Buscando notas…');
     document.getElementById('msg-nota-help').style.display = 'none';
     cardNota.classList.add('locked');
-    
     apiFetch(`/ajax/buscar-notas-cliente-vinculado/?cliente_vinculado_id=${clienteVinculadoId}`)
       .then(async r => {
-        if (!r) {
-          throw new Error('Sessão expirada ou erro de autenticação');
-        }
-        
-        // Verifica status HTTP
+        if (!r) throw new Error('Sessão expirada ou erro de autenticação');
         if (!r.ok) {
-          const errorText = await r.text();
-          console.error(`Erro HTTP ${r.status}:`, errorText);
-          
-          if (r.status === 400) {
-            throw new Error('Parâmetro inválido. Por favor, recarregue a página.');
-          } else if (r.status === 403) {
-            throw new Error('Acesso negado. Esta empresa/pessoa não pertence à sua conta.');
-          } else if (r.status === 500) {
-            throw new Error('Erro no servidor ao buscar notas. Tente novamente.');
-          } else {
-            throw new Error(`Erro ${r.status}: ${r.statusText}`);
-          }
+          const t = await r.text();
+          if (r.status === 400) throw new Error('Parâmetro inválido. Por favor, recarregue a página.');
+          else if (r.status === 403) throw new Error('Acesso negado. Esta empresa/pessoa não pertence à sua conta.');
+          else if (r.status === 500) throw new Error('Erro no servidor ao buscar notas. Tente novamente.');
+          else throw new Error(`Erro ${r.status}: ${r.statusText}`);
         }
-        
         return r.json();
       })
       .then(data => {
-        if (!data) {
-          throw new Error('Resposta vazia do servidor');
-        }
-        
-        console.log('Notas carregadas:', data);
+        if (!data) throw new Error('Resposta vazia do servidor');
         cardNota.classList.remove('locked');
-        
         if (!data.encontrado || !data.notas?.length) {
           let mensagem = data.aviso || 'Nenhuma nota disponível no prazo configurado.';
-          if (data.aviso) {
-            if (data.aviso.includes('prazo')) {
-              mensagem = '⏰ ' + data.aviso;
-            } else if (data.aviso.includes('itens')) {
-              mensagem = '📋 ' + data.aviso;
-            } else if (data.aviso.includes('expirada') || data.aviso.includes('Nenhuma')) {
-              mensagem = '⚠️ ' + data.aviso;
-            } else {
-              mensagem = '⚠️ ' + data.aviso;
-            }
-          }
-          hint('msg-nota', mensagem, 'warn');
+          hint('msg-nota', '⚠️ ' + mensagem, 'warn');
           document.getElementById('msg-nota-help').style.display = 'block';
           inputNotaBusca.disabled = true;
           inputNotaBusca.placeholder = 'Nenhuma nota disponível';
           document.getElementById('badge-nota-lock').style.display = '';
           return;
         }
-        
         notasCarregadas = data.notas;
         inputNotaBusca.disabled    = false;
         inputNotaBusca.placeholder = 'Digite o número da nota para buscar…';
         const total      = data.notas.length;
         const disponiveis = data.notas.filter(n => !n.totalmente_devolvida).length;
         const bloqueadas  = total - disponiveis;
-        
         if (disponiveis === 0) {
           hint('msg-nota', total === 1 ? '✅ Todos os itens desta nota já foram devolvidos.' : `✅ Todas as ${total} notas já foram totalmente devolvidas.`, 'warn');
           inputNotaBusca.disabled = true;
         } else {
-          hint('msg-nota', bloqueadas > 0 ? `📁 ${total} nota(s) — ${bloqueadas} totalmente devolvida(s). Clique no campo para ver a lista.` : `📁 ${total} nota(s) disponível(eis). Clique no campo ou digite para buscar.`, bloqueadas > 0 ? 'warn' : 'ok');
+          hint('msg-nota', bloqueadas > 0 ? `📁 ${total} nota(s) — ${bloqueadas} totalmente devolvida(s).` : `📁 ${total} nota(s) disponível(eis). Clique ou digite para buscar.`, bloqueadas > 0 ? 'warn' : 'ok');
         }
-        
         document.getElementById('badge-nota-lock').style.display = 'none';
         markStep(2);
         inputNotaBusca.focus();
       })
       .catch(err => {
-        console.error('Erro ao carregar notas:', err);
         cardNota.classList.remove('locked');
-        let errorMsg = err.message || 'Erro desconhecido ao buscar notas';
-        hint('msg-nota', '❌ ' + errorMsg, 'err');
+        hint('msg-nota', '❌ ' + (err.message || 'Erro desconhecido'), 'err');
         document.getElementById('msg-nota-help').style.display = 'block';
         inputNotaBusca.disabled = true;
         inputNotaBusca.placeholder = 'Erro ao carregar notas';
         document.getElementById('badge-nota-lock').style.display = '';
-        toast(errorMsg, 'error');
+        toast(err.message || 'Erro ao buscar notas', 'error');
       });
   }
 
@@ -513,128 +1185,51 @@
   window.addEventListener('scroll', reposicionarDropdown, true);
   function fecharDropdown() { notaDropdown.classList.remove('open'); highlightedIndex = -1; }
 
-  // NOVO: Busca por filtro (nota ou produto)
   function buscarPorFiltro(tipoBusca, termo) {
     if (!clienteVinculadoIdAtual) return;
-    if (termo.length < 2) {
-      hint('msg-nota', 'Digite pelo menos 2 caracteres', 'warn');
-      return;
-    }
-    
+    if (termo.length < 2) { hint('msg-nota', 'Digite pelo menos 2 caracteres', 'warn'); return; }
     hint('msg-nota', '🔍 Buscando…');
-    
     apiFetch(`/ajax/buscar-notas-filtro-cliente-vinculado/?cliente_vinculado_id=${clienteVinculadoIdAtual}&tipo_busca=${tipoBusca}&termo_busca=${encodeURIComponent(termo)}`)
-      .then(async r => {
-        if (!r) throw new Error('Sessão expirada');
-        if (!r.ok) {
-          const errorText = await r.text();
-          throw new Error(`Erro ${r.status}`);
-        }
-        return r.json();
-      })
+      .then(async r => { if (!r) throw new Error('Sessão expirada'); if (!r.ok) throw new Error(`Erro ${r.status}`); return r.json(); })
       .then(data => {
         if (!data) throw new Error('Resposta vazia');
-        
         if (!data.encontrado) {
           hint('msg-nota', `❌ ${data.mensagem || 'Nenhuma nota encontrada'}`, 'err');
           notaDropdown.innerHTML = `<div class="nota-dropdown-empty">${esc(data.mensagem || 'Nenhuma nota encontrada')}</div>`;
-          abrirDropdown();
-          lockProdutos();
-          return;
+          abrirDropdown(); lockProdutos(); return;
         }
-        
-        // Renderizar dropdown com notas encontradas (com seus itens)
         renderDropdownComItens(data.notas, termo, tipoBusca);
         hint('msg-nota', `✅ ${data.total} nota(s) encontrada(s)`, 'ok');
       })
-      .catch(err => {
-        console.error('Erro na busca por filtro:', err);
-        hint('msg-nota', `❌ ${err.message}`, 'err');
-        lockProdutos();
-        toast(err.message, 'error');
-      });
+      .catch(err => { hint('msg-nota', `❌ ${err.message}`, 'err'); lockProdutos(); toast(err.message, 'error'); });
   }
 
-  // NOVO: Renderizar dropdown com itens das notas encontradas
   function renderDropdownComItens(notas, termo, tipoBusca) {
     notaDropdown.innerHTML = '';
-    
-    if (!notas.length) {
-      notaDropdown.innerHTML = `<div class="nota-dropdown-empty">Nenhuma nota encontrada.</div>`;
-      abrirDropdown();
-      return;
-    }
-    
+    if (!notas.length) { notaDropdown.innerHTML = `<div class="nota-dropdown-empty">Nenhuma nota encontrada.</div>`; abrirDropdown(); return; }
     const countEl = document.createElement('div');
     countEl.className = 'nota-dropdown-count';
     countEl.textContent = `${notas.length} nota(s) encontrada(s)`;
     notaDropdown.appendChild(countEl);
-    
     notas.forEach((nota, idx) => {
       const opt = document.createElement('div');
-      opt.className = 'nota-opt';
-      opt.dataset.idx = idx;
-      opt.setAttribute('role', 'option');
-      opt.setAttribute('aria-selected', 'false');
-      
-      // Mostrar itens da nota
-      let itensHtml = '';
+      opt.className = 'nota-opt'; opt.dataset.idx = idx;
+      opt.setAttribute('role', 'option'); opt.setAttribute('aria-selected', 'false');
       const itensDisponiveis = nota.itens.filter(i => i.quantidade_disponivel > 0);
-      if (tipoBusca === 'produto') {
-        // Se buscando por produto, mostrar apenas os produtos que batem
-        const produtosSelecionados = itensDisponiveis.filter(i => 
-          termo.toLowerCase() in i.codigo.toLowerCase() ||
-          termo.toLowerCase() in i.descricao.toLowerCase()
-        );
-        itensHtml = produtosSelecionados.map(i => 
-          `<small style="display:block;color:var(--text-muted)">${esc(i.codigo)} - ${esc(i.descricao)} (${i.quantidade_disponivel} disp.)</small>`
-        ).join('');
-      } else {
-        // Se buscando por nota, mostrar todos os itens
-        itensHtml = itensDisponiveis.slice(0, 2).map(i => 
-          `<small style="display:block;color:var(--text-muted)">${esc(i.codigo)} - ${esc(i.descricao)}</small>`
-        ).join('');
-        if (itensDisponiveis.length > 2) {
-          itensHtml += `<small style="display:block;color:var(--text-muted);font-style:italic">+${itensDisponiveis.length - 2} mais</small>`;
-        }
-      }
-      
-      opt.innerHTML = `
-        <div style="flex:1">
-          <span class="nota-opt__num">${esc(nota.numero_nota)}</span>
-          <span style="font-size:11px;color:var(--text-muted);display:block;margin-top:2px">${itensHtml}</span>
-        </div>
-        <span class="nota-opt__badge nota-opt__badge--ok">Disponível</span>
-      `;
-      
-      opt.addEventListener('mousedown', e => { 
-        e.preventDefault();
-        selecionarNota({
-          id: nota.id,
-          numero_nota: nota.numero_nota,
-          itens: nota.itens,
-          data_emissao: nota.data_emissao,
-          dias_restantes: nota.dias_restantes
-        });
-      });
-      
+      let itensHtml = itensDisponiveis.slice(0, 2).map(i => `<small style="display:block;color:var(--text-muted)">${esc(i.codigo)} — ${esc(i.descricao)}</small>`).join('');
+      if (itensDisponiveis.length > 2) itensHtml += `<small style="display:block;color:var(--text-faint);font-style:italic">+${itensDisponiveis.length - 2} mais itens</small>`;
+      opt.innerHTML = `<div style="flex:1"><span class="nota-opt__num">${esc(nota.numero_nota)}</span><div style="font-size:11.5px;color:var(--text-muted);margin-top:3px">${itensHtml}</div></div><span class="nota-opt__badge nota-opt__badge--ok">Disponível</span>`;
+      opt.addEventListener('mousedown', e => { e.preventDefault(); selecionarNota({ id: nota.id, numero_nota: nota.numero_nota, itens: nota.itens }); });
       notaDropdown.appendChild(opt);
     });
-    
-    highlightedIndex = -1;
-    abrirDropdown();
+    highlightedIndex = -1; abrirDropdown();
   }
-
-  function fecharDropdown() { notaDropdown.classList.remove('open'); highlightedIndex = -1; }
 
   function renderDropdown(query) {
     const q = (query || '').trim().toLowerCase();
     const filtradas = notasCarregadas.filter(n => !q || n.numero_nota.toLowerCase().includes(q));
     notaDropdown.innerHTML = '';
-    if (!filtradas.length) {
-      notaDropdown.innerHTML = `<div class="nota-dropdown-empty">Nenhuma nota encontrada para "${esc(query)}".</div>`;
-      abrirDropdown(); return;
-    }
+    if (!filtradas.length) { notaDropdown.innerHTML = `<div class="nota-dropdown-empty">Nenhuma nota encontrada para "${esc(query)}".</div>`; abrirDropdown(); return; }
     const disponiveis = filtradas.filter(n => !n.totalmente_devolvida).length;
     const countEl = document.createElement('div');
     countEl.className = 'nota-dropdown-count';
@@ -643,108 +1238,38 @@
     filtradas.forEach((n, idx) => {
       const opt = document.createElement('div');
       opt.className   = 'nota-opt' + (n.totalmente_devolvida ? ' nota-opt--bloqueada' : '');
-      opt.dataset.idx = idx;
-      opt.setAttribute('role', 'option');
-      opt.setAttribute('aria-selected', 'false');
+      opt.dataset.idx = idx; opt.setAttribute('role', 'option'); opt.setAttribute('aria-selected', 'false');
       let numHtml = esc(n.numero_nota);
-      if (q) {
-        const pos = n.numero_nota.toLowerCase().indexOf(q);
-        if (pos >= 0) numHtml = esc(n.numero_nota.slice(0, pos)) + '<mark>' + esc(n.numero_nota.slice(pos, pos + q.length)) + '</mark>' + esc(n.numero_nota.slice(pos + q.length));
-      }
+      if (q) { const pos = n.numero_nota.toLowerCase().indexOf(q); if (pos >= 0) numHtml = esc(n.numero_nota.slice(0, pos)) + '<mark>' + esc(n.numero_nota.slice(pos, pos + q.length)) + '</mark>' + esc(n.numero_nota.slice(pos + q.length)); }
       opt.innerHTML = `<span class="nota-opt__num">${numHtml}</span><span class="nota-opt__badge ${n.totalmente_devolvida ? 'nota-opt__badge--bloqueada' : 'nota-opt__badge--ok'}">${n.totalmente_devolvida ? 'Totalmente devolvida' : 'Disponível'}</span>`;
-      if (!n.totalmente_devolvida) {
-        opt.addEventListener('mousedown', e => { e.preventDefault(); selecionarNota(n); });
-      }
+      if (!n.totalmente_devolvida) opt.addEventListener('mousedown', e => { e.preventDefault(); selecionarNota(n); });
       notaDropdown.appendChild(opt);
     });
-    highlightedIndex = -1;
-    abrirDropdown();
+    highlightedIndex = -1; abrirDropdown();
   }
 
   function selecionarNota(n) {
     inputNotaBusca.value = n.numero_nota;
     btnLimparNota.classList.add('visible');
-    fecharDropdown();
-    removerAlertaNota();
-    lockProdutos();
-    
-    // Se já temos os itens (vindo do buscar_notas_por_filtro), usar direto
-    if (n.itens && n.itens.length) {
-      processarItensDaNota(n, n.itens);
-      return;
-    }
-    
-    // Caso contrário, buscar itens via API (compatibilidade com fluxo antigo)
+    fecharDropdown(); removerAlertaNota(); lockProdutos();
+    if (n.itens && n.itens.length) { processarItensDaNota(n, n.itens); return; }
     hint('msg-nota', 'Carregando itens…');
-
     apiFetch(`/ajax/buscar-itens-nota-cliente-vinculado/?cliente_vinculado_id=${clienteVinculadoIdAtual}&nota_id=${n.id}`)
-      .then(async r => {
-        if (!r) {
-          throw new Error('Sessão expirada ou erro de autenticação');
-        }
-        
-        if (!r.ok) {
-          const errorText = await r.text();
-          console.error(`Erro HTTP ${r.status}:`, errorText);
-          
-          if (r.status === 400) {
-            throw new Error('Parâmetro inválido.');
-          } else if (r.status === 403) {
-            throw new Error('Acesso negado a esta nota.');
-          } else if (r.status === 500) {
-            throw new Error('Erro no servidor ao buscar itens da nota.');
-          } else {
-            throw new Error(`Erro ${r.status}`);
-          }
-        }
-        
-        return r.json();
-      })
-      .then(data => {
-        if (!data) {
-          throw new Error('Resposta vazia do servidor');
-        }
-        
-        console.log('Itens carregados:', data);
-        
-        if (!data.encontrado) {
-          if (data.totalmente_devolvida) {
-            hint('msg-nota', '', '');
-            mostrarAlertaNota(' Todos os itens desta nota já atingiram o limite de devolução.');
-          } else {
-            hint('msg-nota', data.aviso || 'Nota sem itens disponíveis.', 'err');
-          }
-          return;
-        }
-        
-        processarItensDaNota(n, data.itens);
-      })
-      .catch(err => {
-        console.error('Erro ao carregar itens:', err);
-        let errorMsg = err.message || 'Erro desconhecido';
-        hint('msg-nota', '❌ ' + errorMsg, 'err');
-        toast(errorMsg, 'error');
-        inputNotaBusca.value = '';
-        btnLimparNota.classList.remove('visible');
-      });
+      .then(async r => { if (!r) throw new Error('Sessão expirada'); if (!r.ok) { if (r.status === 403) throw new Error('Acesso negado a esta nota.'); throw new Error(`Erro ${r.status}`); } return r.json(); })
+      .then(data => { if (!data) throw new Error('Resposta vazia'); if (!data.encontrado) { if (data.totalmente_devolvida) { hint('msg-nota', ''); mostrarAlertaNota(' Todos os itens desta nota já atingiram o limite de devolução.'); } else { hint('msg-nota', data.aviso || 'Nota sem itens disponíveis.', 'err'); } return; } processarItensDaNota(n, data.itens); })
+      .catch(err => { hint('msg-nota', '❌ ' + err.message, 'err'); toast(err.message, 'error'); inputNotaBusca.value = ''; btnLimparNota.classList.remove('visible'); });
   }
 
-  // NOVO: Processar itens da nota (usado por selecionarNota)
   function processarItensDaNota(n, itens) {
-    notaItens   = itens;
-    notaIdAtual = String(n.id);
+    notaItens = itens; notaIdAtual = String(n.id);
     document.getElementById('hidden_numero_nota').value = n.numero_nota;
     const sel = document.getElementById('modal-select-produto');
     sel.innerHTML = '<option value="">— Selecione um produto —</option>';
     itens.forEach(item => {
       const o = document.createElement('option');
-      o.value = item.id;
-      o.textContent = `${item.codigo} — ${item.descricao}`;
-      o.dataset.codigo       = item.codigo;
-      o.dataset.descricao    = item.descricao;
-      o.dataset.qtdOriginal  = item.quantidade_original;
-      o.dataset.qtdDevolvida = item.quantidade_devolvida;
-      o.dataset.qtd          = item.quantidade_disponivel;
+      o.value = item.id; o.textContent = `${item.codigo} — ${item.descricao}`;
+      o.dataset.codigo = item.codigo; o.dataset.descricao = item.descricao;
+      o.dataset.qtdOriginal = item.quantidade_original; o.dataset.qtdDevolvida = item.quantidade_devolvida; o.dataset.qtd = item.quantidade_disponivel;
       sel.appendChild(o);
     });
     document.getElementById('card-produtos').style.display  = 'block';
@@ -752,66 +1277,35 @@
     document.getElementById('badge-nota-ok').style.display  = '';
     document.getElementById('badge-nota-lock').style.display = 'none';
     document.getElementById('badge-nota-ok').textContent    = `✓ Nota ${n.numero_nota}`;
-    const comSaldo   = itens.length;
     const comParcial = itens.filter(i => i.quantidade_devolvida > 0).length;
-    let hintMsg = `${comSaldo} produto(s) com saldo disponível.`;
-    if (comParcial > 0) hintMsg += ` (${comParcial} com devolução parcial anterior)`;
-    hint('msg-nota', hintMsg, comParcial > 0 ? 'warn' : 'ok');
+    hint('msg-nota', `${itens.length} produto(s) com saldo disponível.${comParcial > 0 ? ` (${comParcial} com devolução parcial anterior)` : ''}`, comParcial > 0 ? 'warn' : 'ok');
     markStep(2, true); markStep(3);
   }
 
   inputNotaBusca.addEventListener('input', function () {
     const q = this.value.trim();
     const tipoBusca = document.getElementById('select-tipo-busca').value;
-    
     btnLimparNota.classList.toggle('visible', q.length > 0);
-    
-    if (!q) { 
-      lockProdutos();
-      fecharDropdown();
-      if (tipoBusca === 'nota') {
-        hint('msg-nota', `${notasCarregadas.filter(n => !n.totalmente_devolvida).length} nota(s) disponível(eis)`, 'ok');
-      } else {
-        hint('msg-nota', 'Digite para buscar por produto', 'ok');
-      }
-      return;
-    }
-    
-    // Se tem menos de 2 caracteres, não busca
-    if (q.length < 2) {
-      fecharDropdown();
-      hint('msg-nota', 'Digite pelo menos 2 caracteres', 'warn');
-      return;
-    }
-    
-    // Fazer busca com filtro
-    if (tipoBusca === 'nota') {
-      renderDropdown(q);
-    } else {
-      buscarPorFiltro(tipoBusca, q);
-    }
+    if (!q) { lockProdutos(); fecharDropdown(); if (tipoBusca === 'nota') hint('msg-nota', `${notasCarregadas.filter(n => !n.totalmente_devolvida).length} nota(s) disponível(eis)`, 'ok'); else hint('msg-nota', 'Digite para buscar por produto', 'ok'); return; }
+    if (q.length < 2) { fecharDropdown(); hint('msg-nota', 'Digite pelo menos 2 caracteres', 'warn'); return; }
+    if (tipoBusca === 'nota') renderDropdown(q); else buscarPorFiltro(tipoBusca, q);
   });
   inputNotaBusca.addEventListener('focus', function () { if (notasCarregadas.length) renderDropdown(this.value.trim()); });
   inputNotaBusca.addEventListener('blur', () => { setTimeout(fecharDropdown, 150); });
   inputNotaBusca.addEventListener('keydown', function (e) {
     const opts = [...notaDropdown.querySelectorAll('.nota-opt:not(.nota-opt--bloqueada)')];
-    if (!notaDropdown.classList.contains('open') || !opts.length) {
-      if (e.key === 'ArrowDown' && notasCarregadas.length) renderDropdown(this.value.trim());
-      return;
-    }
-    if (e.key === 'ArrowDown')       { e.preventDefault(); highlightedIndex = Math.min(highlightedIndex + 1, opts.length - 1); }
-    else if (e.key === 'ArrowUp')    { e.preventDefault(); highlightedIndex = Math.max(highlightedIndex - 1, 0); }
-    else if (e.key === 'Enter')      { e.preventDefault(); if (highlightedIndex >= 0) opts[highlightedIndex].dispatchEvent(new MouseEvent('mousedown')); return; }
-    else if (e.key === 'Escape')     { fecharDropdown(); return; }
+    if (!notaDropdown.classList.contains('open') || !opts.length) { if (e.key === 'ArrowDown' && notasCarregadas.length) renderDropdown(this.value.trim()); return; }
+    if (e.key === 'ArrowDown')  { e.preventDefault(); highlightedIndex = Math.min(highlightedIndex + 1, opts.length - 1); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); highlightedIndex = Math.max(highlightedIndex - 1, 0); }
+    else if (e.key === 'Enter')  { e.preventDefault(); if (highlightedIndex >= 0) opts[highlightedIndex].dispatchEvent(new MouseEvent('mousedown')); return; }
+    else if (e.key === 'Escape') { fecharDropdown(); return; }
     else return;
     opts.forEach((o, i) => o.classList.toggle('highlighted', i === highlightedIndex));
     opts[highlightedIndex]?.scrollIntoView({ block: 'nearest' });
   });
 
   btnLimparNota.addEventListener('click', () => {
-    inputNotaBusca.value = '';
-    btnLimparNota.classList.remove('visible');
-    lockProdutos();
+    inputNotaBusca.value = ''; btnLimparNota.classList.remove('visible'); lockProdutos();
     document.getElementById('badge-nota-ok').style.display   = 'none';
     document.getElementById('badge-nota-lock').style.display = '';
     removerAlertaNota();
@@ -820,72 +1314,40 @@
   });
   document.addEventListener('click', e => { if (!e.target.closest('#nota-search-wrap')) fecharDropdown(); });
 
-  // NOVO: Event listener para seletor de tipo de busca
   document.getElementById('select-tipo-busca')?.addEventListener('change', function () {
     const tipoBusca = this.value;
-    inputNotaBusca.value = '';
-    btnLimparNota.classList.remove('visible');
-    fecharDropdown();
-    lockProdutos();
-    removerAlertaNota();
-    
-    const placeholders = {
-      'nota': 'Digite número ou ID da nota…',
-      'produto': 'Digite código ou nome do produto…'
-    };
-    
+    inputNotaBusca.value = ''; btnLimparNota.classList.remove('visible'); fecharDropdown(); lockProdutos(); removerAlertaNota();
+    const placeholders = { nota: 'Digite número ou ID da nota…', produto: 'Digite código ou nome do produto…' };
     inputNotaBusca.placeholder = placeholders[tipoBusca] || 'Digite para buscar…';
-    
-    if (tipoBusca === 'nota' && notasCarregadas.length) {
-      hint('msg-nota', `${notasCarregadas.filter(n => !n.totalmente_devolvida).length} nota(s) disponível(eis)`, 'ok');
-    } else if (tipoBusca === 'produto') {
-      hint('msg-nota', 'Buscar por código ou nome do produto', 'info');
-    }
+    if (tipoBusca === 'nota' && notasCarregadas.length) hint('msg-nota', `${notasCarregadas.filter(n => !n.totalmente_devolvida).length} nota(s) disponível(eis)`, 'ok');
+    else if (tipoBusca === 'produto') hint('msg-nota', 'Buscar por código ou nome do produto', 'info');
   });
 
-  document.addEventListener('click', e => { if (!e.target.closest('#nota-search-wrap')) fecharDropdown(); });
-
-  // NEW: Handler para dropdown de cliente_vinculado
   const campoClienteVinculado = document.getElementById('id_cliente_vinculado');
-  
   campoClienteVinculado?.addEventListener('change', function () {
     const clienteVinculadoId = this.value;
     clienteVinculadoIdAtual = clienteVinculadoId;
     documentoAtual = '';
     document.getElementById('badge-cliente').style.display = clienteVinculadoId ? '' : 'none';
-    
-    if (!clienteVinculadoId) {
-      lockNota();
-      return;
-    }
-    
-    console.log('Cliente vinculado selecionado:', clienteVinculadoId);
-    
-    // Mark step 1 done
+    if (!clienteVinculadoId) { lockNota(); return; }
     markStep(1, true);
-    
-    // Load notas for this cliente_vinculado
     carregarNotas(clienteVinculadoId);
   });
 
   document.getElementById('arquivo_pdf')?.addEventListener('change', function () {
-    document.getElementById('file-label').textContent = this.files[0] ? '📄 ' + this.files[0].name : '📎 Clique para anexar PDF da nota';
+    document.getElementById('file-label').textContent = this.files[0] ? this.files[0].name : 'Clique para anexar PDF da nota';
   });
 
-  /* ── Modal de produto ── */
+  /* ── Modal ── */
   const overlay = document.getElementById('modal-overlay');
-
   function abrirModal(index = -1) {
-    editandoIndex = index;
-    const isEdit  = index >= 0;
+    editandoIndex = index; const isEdit = index >= 0;
     document.getElementById('modal-title').textContent         = isEdit ? 'Editar Produto'         : 'Adicionar Produto';
     document.getElementById('modal-subtitle').textContent      = isEdit ? 'Altere os dados abaixo' : 'Selecione um produto da nota e informe a quantidade';
     document.getElementById('btn-confirmar-modal').textContent = isEdit ? 'Salvar alterações'       : 'Adicionar';
     const sel = document.getElementById('modal-select-produto');
     if (isEdit) {
-      const p = produtos[index];
-      sel.value = p.produto_id; sel.disabled = true;
-      infoFromId(p.produto_id);
+      const p = produtos[index]; sel.value = p.produto_id; sel.disabled = true; infoFromId(p.produto_id);
       document.getElementById('modal-quantidade').value = p.quantidade;
       document.getElementById('modal-observacao').value  = p.observacao || '';
       const cm = document.querySelector('[name="motivo"]'); if (cm) cm.value = p.motivo || '';
@@ -896,42 +1358,22 @@
       document.getElementById('modal-observacao').value  = '';
       hint('msg-qtd', '');
       const cm = document.querySelector('[name="motivo"]'); if (cm) cm.value = '';
-      const fotoInp = document.getElementById('modal-foto');
-      if (fotoInp) fotoInp.value = '';
+      const fotoInp = document.getElementById('modal-foto'); if (fotoInp) fotoInp.value = '';
       document.getElementById('foto-preview').style.display = 'none';
       document.getElementById('foto-area-text').textContent = '📷 Clique para anexar foto do defeito';
     }
-    overlay.classList.add('open');
-    overlay.setAttribute('aria-hidden', 'false');
+    overlay.classList.add('open'); overlay.setAttribute('aria-hidden', 'false');
     document.body.style.overflow = 'hidden';
-    // Foca o primeiro elemento interativo do modal para acessibilidade
     setTimeout(() => sel.focus(), 50);
   }
-
-  function fecharModal() {
-    overlay.classList.remove('open');
-    overlay.setAttribute('aria-hidden', 'true');
-    document.body.style.overflow = '';
-    editandoIndex = -1;
-    document.getElementById('modal-select-produto').disabled = false;
-  }
+  function fecharModal() { overlay.classList.remove('open'); overlay.setAttribute('aria-hidden', 'true'); document.body.style.overflow = ''; editandoIndex = -1; document.getElementById('modal-select-produto').disabled = false; }
 
   document.getElementById('modal-foto')?.addEventListener('change', function () {
-    const file = this.files[0];
-    const preview = document.getElementById('foto-preview');
-    const img     = document.getElementById('foto-preview-img');
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = e => { img.src = e.target.result; preview.style.display = 'block'; };
-      reader.readAsDataURL(file);
-      document.getElementById('foto-area-text').textContent = '📷 ' + file.name;
-    } else { preview.style.display = 'none'; }
+    const file = this.files[0]; const preview = document.getElementById('foto-preview'); const img = document.getElementById('foto-preview-img');
+    if (file) { const reader = new FileReader(); reader.onload = e => { img.src = e.target.result; preview.style.display = 'block'; }; reader.readAsDataURL(file); document.getElementById('foto-area-text').textContent = '📷 ' + file.name; }
+    else { preview.style.display = 'none'; }
   });
-  document.getElementById('btn-remover-foto')?.addEventListener('click', () => {
-    document.getElementById('modal-foto').value = '';
-    document.getElementById('foto-preview').style.display = 'none';
-    document.getElementById('foto-area-text').textContent = '📷 Clique para anexar foto do defeito';
-  });
+  document.getElementById('btn-remover-foto')?.addEventListener('click', () => { document.getElementById('modal-foto').value = ''; document.getElementById('foto-preview').style.display = 'none'; document.getElementById('foto-area-text').textContent = '📷 Clique para anexar foto do defeito'; });
   document.getElementById('btn-abrir-modal')?.addEventListener('click',   () => abrirModal(-1));
   document.getElementById('btn-fechar-modal')?.addEventListener('click',   fecharModal);
   document.getElementById('btn-cancelar-modal')?.addEventListener('click', fecharModal);
@@ -939,8 +1381,7 @@
   document.addEventListener('keydown', e => { if (e.key === 'Escape') fecharModal(); });
 
   function infoFromId(id) {
-    const item = notaItens.find(i => String(i.id) === String(id));
-    const box  = document.getElementById('modal-product-info');
+    const item = notaItens.find(i => String(i.id) === String(id)); const box = document.getElementById('modal-product-info');
     if (item) {
       document.getElementById('info-codigo').textContent        = item.codigo;
       document.getElementById('info-descricao').textContent     = item.descricao;
@@ -949,58 +1390,42 @@
       document.getElementById('info-qtd-disp').textContent      = item.quantidade_disponivel;
       document.getElementById('modal-quantidade').max           = item.quantidade_disponivel;
       document.getElementById('modal-quantidade').value         = 1;
-      box.style.display = 'flex';
-      hint('msg-qtd', '');
+      box.style.display = 'flex'; hint('msg-qtd', '');
     } else { box.style.display = 'none'; }
   }
 
   document.getElementById('modal-select-produto')?.addEventListener('change', function () { infoFromId(this.value); });
-  document.getElementById('btn-minus')?.addEventListener('click', () => {
-    const inp = document.getElementById('modal-quantidade');
-    if (+inp.value > 1) inp.value = +inp.value - 1;
-  });
-  document.getElementById('btn-plus')?.addEventListener('click', () => {
-    const inp = document.getElementById('modal-quantidade');
-    const max = +inp.max || 9999;
-    if (+inp.value < max) inp.value = +inp.value + 1;
-    else hint('msg-qtd', `Máximo disponível: ${max}`, 'warn');
-  });
+  document.getElementById('btn-minus')?.addEventListener('click', () => { const inp = document.getElementById('modal-quantidade'); if (+inp.value > 1) inp.value = +inp.value - 1; });
+  document.getElementById('btn-plus')?.addEventListener('click',  () => { const inp = document.getElementById('modal-quantidade'); const max = +inp.max || 9999; if (+inp.value < max) inp.value = +inp.value + 1; else hint('msg-qtd', `Máximo disponível: ${max}`, 'warn'); });
 
   document.getElementById('btn-confirmar-modal')?.addEventListener('click', () => {
-    const sel    = document.getElementById('modal-select-produto');
-    const qty    = +document.getElementById('modal-quantidade').value;
-    const motivo = document.querySelector('[name="motivo"]')?.value || '';
-    const obs    = document.getElementById('modal-observacao').value.trim();
-    if (!sel.value) { hint('msg-select-produto', 'Selecione um produto.', 'err'); return; }
+    const sel = document.getElementById('modal-select-produto'); const qty = +document.getElementById('modal-quantidade').value;
+    const motivo = document.querySelector('[name="motivo"]')?.value || ''; const obs = document.getElementById('modal-observacao').value.trim();
+    if (!sel.value)      { hint('msg-select-produto', 'Selecione um produto.', 'err'); return; }
     if (!qty || qty < 1) { hint('msg-qtd', 'Informe uma quantidade válida.', 'err'); return; }
     const item = notaItens.find(i => String(i.id) === String(sel.value));
     const limiteDisponivel = item ? item.quantidade_disponivel : 9999;
     if (qty > limiteDisponivel) { hint('msg-qtd', `Quantidade excede o saldo disponível (${limiteDisponivel} un.).`, 'err'); return; }
     const produto = { produto_id: sel.value, codigo: item ? item.codigo : '', descricao: item ? item.descricao : '', quantidade: qty, motivo, observacao: obs };
     if (editandoIndex < 0 && produtos.find(p => String(p.produto_id) === String(produto.produto_id))) { toast('Produto já adicionado.', 'error'); return; }
-    if (editandoIndex >= 0) { produtos[editandoIndex] = produto; toast('Produto atualizado!'); }
-    else { produtos.push(produto); toast('Produto adicionado!'); }
+    if (editandoIndex >= 0) { produtos[editandoIndex] = produto; toast('Produto atualizado!'); } else { produtos.push(produto); toast('Produto adicionado!'); }
     const fotoFile = document.getElementById('modal-foto')?.files[0];
-    if (fotoFile) fotosMap.set(String(produto.produto_id), fotoFile);
-    else if (editandoIndex < 0) fotosMap.delete(String(produto.produto_id));
+    if (fotoFile) fotosMap.set(String(produto.produto_id), fotoFile); else if (editandoIndex < 0) fotosMap.delete(String(produto.produto_id));
     syncJson(); renderLista(); fecharModal(); atualizarSteps();
   });
 
-  /* ── Render produtos ── */
+  /* ── Render ── */
   function getFotoThumb(prodId) {
-    const file = fotosMap.get(String(prodId));
-    if (!file) return '<span style="color:var(--text-faint);font-size:12px">—</span>';
+    const file = fotosMap.get(String(prodId)); if (!file) return '<span style="color:var(--text-faint);font-size:12px">—</span>';
     const url = URL.createObjectURL(file);
     return `<img src="${url}" class="td-foto-thumb" title="${esc(file.name)}" onclick="verFoto('${url}')" alt="Foto do produto">`;
   }
   window.verFoto = function(url) {
     const ov = document.createElement('div');
     ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:9999;display:flex;align-items:center;justify-content:center;cursor:zoom-out';
-    ov.setAttribute('role', 'dialog');
-    ov.setAttribute('aria-label', 'Visualização da foto');
-    ov.innerHTML = `<img src="${url}" style="max-width:90vw;max-height:90vh;border-radius:8px;box-shadow:0 20px 60px rgba(0,0,0,.5)" alt="Foto do produto em tamanho ampliado">`;
-    ov.onclick = () => ov.remove();
-    document.body.appendChild(ov);
+    ov.setAttribute('role','dialog'); ov.setAttribute('aria-label','Visualização da foto');
+    ov.innerHTML = `<img src="${url}" style="max-width:90vw;max-height:90vh;border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,.5)" alt="Foto do produto ampliada">`;
+    ov.onclick = () => ov.remove(); document.body.appendChild(ov);
   };
   function renderLista() { renderTabela(); renderCards(); syncBadge(); }
   function syncBadge() {
@@ -1011,14 +1436,12 @@
     if (!ok) { selecionados.clear(); syncBulkBar(); }
   }
   function renderTabela() {
-    const tbody    = document.getElementById('tbody-produtos');
-    const emptyRow = document.getElementById('empty-row');
+    const tbody = document.getElementById('tbody-produtos'); const emptyRow = document.getElementById('empty-row');
     [...tbody.querySelectorAll('tr:not(#empty-row)')].forEach(r => r.remove());
     if (!produtos.length) { emptyRow.style.display = ''; return; }
     emptyRow.style.display = 'none';
     produtos.forEach((p, i) => {
-      const tr = document.createElement('tr');
-      if (selecionados.has(i)) tr.classList.add('selected');
+      const tr = document.createElement('tr'); if (selecionados.has(i)) tr.classList.add('selected');
       tr.innerHTML = `
         <td style="text-align:center"><input type="checkbox" class="chk-item" data-i="${i}" ${selecionados.has(i) ? 'checked' : ''} aria-label="Selecionar ${esc(p.descricao)}"></td>
         <td class="td-code">${esc(p.codigo)}</td>
@@ -1033,131 +1456,48 @@
         </td>`;
       tbody.appendChild(tr);
     });
-    tbody.querySelectorAll('.chk-item').forEach(c => c.addEventListener('change', function () {
-      const idx = +this.dataset.i;
-      if (this.checked) selecionados.add(idx); else selecionados.delete(idx);
-      this.closest('tr').classList.toggle('selected', this.checked);
-      syncBulkBar(); syncSelectAll();
-    }));
+    tbody.querySelectorAll('.chk-item').forEach(c => c.addEventListener('change', function () { const idx = +this.dataset.i; if (this.checked) selecionados.add(idx); else selecionados.delete(idx); this.closest('tr').classList.toggle('selected', this.checked); syncBulkBar(); syncSelectAll(); }));
     tbody.querySelectorAll('.btn-editar').forEach(b => b.addEventListener('click', function () { abrirModal(+this.dataset.i); }));
     tbody.querySelectorAll('.btn-del').forEach(b    => b.addEventListener('click', function () { remover(+this.dataset.i); }));
   }
   function renderCards() {
-    const lista = document.getElementById('produto-lista');
-    lista.innerHTML = '';
-    if (!produtos.length) {
-      lista.innerHTML = `<div class="empty-state"><div class="empty-state-icon">📦</div><p>Nenhum produto adicionado.<br>Toque em <strong>Adicionar produto</strong>.</p></div>`;
-      return;
-    }
+    const lista = document.getElementById('produto-lista'); lista.innerHTML = '';
+    if (!produtos.length) { lista.innerHTML = `<div class="empty-state"><div class="empty-state-icon">📦</div><p>Nenhum produto adicionado.<br>Toque em <strong>Adicionar produto</strong>.</p></div>`; return; }
     produtos.forEach((p, i) => {
-      const c = document.createElement('div');
-      c.className = 'produto-card' + (selecionados.has(i) ? ' selected' : '');
-      c.innerHTML = `
-        <div class="pcard-top">
-          <div class="pcard-check"><input type="checkbox" class="chk-card" data-i="${i}" ${selecionados.has(i) ? 'checked' : ''} aria-label="Selecionar ${esc(p.descricao)}"></div>
-          <div class="pcard-info"><div class="pcard-desc">${esc(p.descricao)}</div><div class="pcard-code">${esc(p.codigo)}</div></div>
-          <div class="pcard-qty-badge"><strong>${p.quantidade}</strong><span>un.</span></div>
-        </div>
-        <div class="pcard-meta"><span class="motivo-badge">${esc(p.motivo || '—')}</span>${p.observacao ? `<span class="pcard-obs">💬 ${esc(p.observacao)}</span>` : ''}</div>
-        <div class="pcard-actions">
-          <button type="button" class="btn btn-ghost btn-sm" onclick="editarCard(${i})">✏️ Editar</button>
-          <button type="button" class="btn btn-danger btn-sm" onclick="remover(${i})">✕ Remover</button>
-        </div>`;
+      const c = document.createElement('div'); c.className = 'produto-card' + (selecionados.has(i) ? ' selected' : '');
+      c.innerHTML = `<div class="pcard-top"><div class="pcard-check"><input type="checkbox" class="chk-card" data-i="${i}" ${selecionados.has(i) ? 'checked' : ''} aria-label="Selecionar ${esc(p.descricao)}"></div><div class="pcard-info"><div class="pcard-desc">${esc(p.descricao)}</div><div class="pcard-code">${esc(p.codigo)}</div></div><div class="pcard-qty-badge"><strong>${p.quantidade}</strong><span>un.</span></div></div><div class="pcard-meta"><span class="motivo-badge">${esc(p.motivo || '—')}</span>${p.observacao ? `<span class="pcard-obs">💬 ${esc(p.observacao)}</span>` : ''}</div><div class="pcard-actions"><button type="button" class="btn btn-ghost btn-sm" onclick="editarCard(${i})">✏️ Editar</button><button type="button" class="btn btn-danger btn-sm" onclick="remover(${i})">✕ Remover</button></div>`;
       lista.appendChild(c);
     });
-    lista.querySelectorAll('.chk-card').forEach(c => c.addEventListener('change', function () {
-      const idx = +this.dataset.i;
-      if (this.checked) selecionados.add(idx); else selecionados.delete(idx);
-      this.closest('.produto-card').classList.toggle('selected', this.checked);
-      syncBulkBar(); syncSelectAll();
-    }));
+    lista.querySelectorAll('.chk-card').forEach(c => c.addEventListener('change', function () { const idx = +this.dataset.i; if (this.checked) selecionados.add(idx); else selecionados.delete(idx); this.closest('.produto-card').classList.toggle('selected', this.checked); syncBulkBar(); syncSelectAll(); }));
   }
   window.editarCard = i => abrirModal(i);
-  window.remover    = idx => {
-    const nome = produtos[idx].descricao;
-    produtos.splice(idx, 1); selecionados.clear();
-    syncJson(); renderLista(); toast(`"${nome}" removido.`, 'error');
-  };
-  document.getElementById('chk-todos')?.addEventListener('change', function () {
-    selecionados.clear();
-    if (this.checked) produtos.forEach((_, i) => selecionados.add(i));
-    renderLista(); syncBulkBar();
-  });
-  function syncSelectAll() {
-    const c = document.getElementById('chk-todos'); if (!c) return;
-    c.checked       = selecionados.size === produtos.length && produtos.length > 0;
-    c.indeterminate = selecionados.size > 0 && selecionados.size < produtos.length;
-  }
-  function syncBulkBar() {
-    document.getElementById('bulk-actions').classList.toggle('visible', selecionados.size > 0);
-    document.getElementById('bulk-label').textContent = `${selecionados.size} item(ns) selecionado(s)`;
-  }
-  document.getElementById('btn-descartar-selecionados')?.addEventListener('click', () => {
-    const n = selecionados.size;
-    [...selecionados].sort((a, b) => b - a).forEach(i => produtos.splice(i, 1));
-    selecionados.clear(); syncJson(); renderLista(); toast(`${n} item(ns) removido(s).`, 'error');
-  });
+  window.remover    = idx => { const nome = produtos[idx].descricao; produtos.splice(idx, 1); selecionados.clear(); syncJson(); renderLista(); toast(`"${nome}" removido.`, 'error'); };
+
+  document.getElementById('chk-todos')?.addEventListener('change', function () { selecionados.clear(); if (this.checked) produtos.forEach((_, i) => selecionados.add(i)); renderLista(); syncBulkBar(); });
+  function syncSelectAll() { const c = document.getElementById('chk-todos'); if (!c) return; c.checked = selecionados.size === produtos.length && produtos.length > 0; c.indeterminate = selecionados.size > 0 && selecionados.size < produtos.length; }
+  function syncBulkBar() { document.getElementById('bulk-actions').classList.toggle('visible', selecionados.size > 0); document.getElementById('bulk-label').textContent = `${selecionados.size} item(ns) selecionado(s)`; }
+  document.getElementById('btn-descartar-selecionados')?.addEventListener('click', () => { const n = selecionados.size; [...selecionados].sort((a,b)=>b-a).forEach(i => produtos.splice(i,1)); selecionados.clear(); syncJson(); renderLista(); toast(`${n} item(ns) removido(s).`, 'error'); });
   document.getElementById('btn-desmarcar')?.addEventListener('click', () => { selecionados.clear(); renderLista(); syncBulkBar(); });
   function atualizarSteps() { if (produtos.length > 0) { markStep(3, true); markStep(4); } }
 
-  /* ── Submit com fotos ── */
+  /* ── Submit ── */
   document.getElementById('form-devolucao')?.addEventListener('submit', function (e) {
     const action = e.submitter?.value || e.target.querySelector('[name="action"]')?.value;
-
     if (action !== 'enviar') return;
-
     if (fotosMap.size > 0) {
       e.preventDefault();
-
-      const formData = new FormData(this);
-
-      // FIX: garante que 'action' chegue ao backend (FormData não inclui botões submit)
-      formData.append('action', 'enviar');
-
-      fotosMap.forEach((file, prodId) => {
-        formData.append('foto_produto_' + prodId, file, file.name);
-      });
-
-      const btn = document.getElementById('btn-enviar');
-      const btnOriginalText = btn.textContent;
-      btn.disabled = true;
-      btn.textContent = 'Enviando…';
-
-      fetch('/devolucao/', {
-        method: 'POST',
-        headers: { 'X-Requested-With': 'XMLHttpRequest' },
-        body: formData
-      })
-      .then(resp => {
-        if (!resp.ok) {
-          return resp.text().then(text => { throw new Error('Erro do servidor: ' + text.substring(0, 200)); });
-        }
-        return resp.json();
-      })
-      .then(data => {
-        if (data.success) {
-          window.location.href = data.redirect_url;
-        } else {
-          alert('Erros:\n' + data.errors.join('\n'));
-          btn.disabled = false;
-          btn.textContent = btnOriginalText;
-        }
-      })
-      .catch(err => {
-        console.error('Erro ao enviar:', err);
-        alert('Erro ao enviar a devolução: ' + err.message);
-        btn.disabled = false;
-        btn.textContent = btnOriginalText;
-      });
+      const formData = new FormData(this); formData.append('action', 'enviar');
+      fotosMap.forEach((file, prodId) => { formData.append('foto_produto_' + prodId, file, file.name); });
+      const btn = document.getElementById('btn-enviar'); const btnOriginalText = btn.textContent;
+      btn.disabled = true; btn.textContent = 'Enviando…';
+      fetch('/devolucao/', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body: formData })
+        .then(resp => { if (!resp.ok) return resp.text().then(text => { throw new Error('Erro do servidor: ' + text.substring(0, 200)); }); return resp.json(); })
+        .then(data => { if (data.success) { window.location.href = data.redirect_url; } else { alert('Erros:\n' + data.errors.join('\n')); btn.disabled = false; btn.textContent = btnOriginalText; } })
+        .catch(err => { console.error('Erro ao enviar:', err); alert('Erro ao enviar a devolução: ' + err.message); btn.disabled = false; btn.textContent = btnOriginalText; });
     }
   });
 
-  if (produtos.length > 0) {
-    document.getElementById('card-produtos').style.display = 'block';
-    document.getElementById('btn-abrir-modal').disabled    = false;
-    renderLista(); atualizarSteps();
-  }
+  if (produtos.length > 0) { document.getElementById('card-produtos').style.display = 'block'; document.getElementById('btn-abrir-modal').disabled = false; renderLista(); atualizarSteps(); }
 })();
 </script>
-
 {% endblock %}

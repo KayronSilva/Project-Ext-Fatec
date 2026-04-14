@@ -30,6 +30,9 @@ urlpatterns = [
     path('painel/',                                      views.painel_admin,               name='painel_admin'),
     path('painel/devolucao/<int:devolucao_id>/status/', views.atualizar_status_devolucao, name='atualizar_status_devolucao'),
     path('painel/configuracoes/salvar/',                views.salvar_configuracoes,       name='salvar_configuracoes'),
+    path('painel/devolucao/<int:devolucao_id>/obs-interna/',
+     views.salvar_observacao_interna,
+     name='salvar_observacao_interna'),
 
     # ── Gestão de Usuários ────────────────────────────────
     path('painel/usuarios/',                          views.gestao_usuarios, name='gestao_usuarios'),

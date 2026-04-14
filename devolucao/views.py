@@ -1462,6 +1462,7 @@ def painel_admin(request):
                 'tipo_cliente':   dev.cliente.tipo          if dev.cliente else '',
                 'data_criacao':   dev.data_criacao.strftime('%d/%m/%Y'),
                 'obs_geral':      dev.observacao_geral or '',
+                'obs_interna':    dev.observacao_interna or '',  
                 'itens': [
                     {
                         'descricao':      item.produto.descricao or '',
@@ -1526,6 +1527,27 @@ def atualizar_status_devolucao(request, devolucao_id):
         return JsonResponse({'success': False, 'error': 'Devolução não encontrada.'}, status=404)
 
 
+
+@require_POST
+@admin_required
+def salvar_observacao_interna(request, devolucao_id):
+    """AJAX — salva observação interna de uma devolução. Restrito a staff."""
+    try:
+        body = json.loads(request.body)
+        obs  = body.get('observacao_interna', '').strip()
+    except (json.JSONDecodeError, TypeError):
+        return JsonResponse({'success': False, 'error': 'Dados inválidos.'}, status=400)
+
+    try:
+        devolucao = Devolucao.objects.get(pk=devolucao_id)
+        devolucao.observacao_interna = obs
+        devolucao.save(update_fields=['observacao_interna'])
+        logger.info(
+            f"Obs. interna da devolução #{devolucao_id} atualizada por {request.user.email}"
+        )
+        return JsonResponse({'success': True, 'observacao_interna': obs})
+    except Devolucao.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Devolução não encontrada.'}, status=404)
 # ════════════════════════════════════════════════════════
 # Configurações do Sistema
 # ════════════════════════════════════════════════════════
