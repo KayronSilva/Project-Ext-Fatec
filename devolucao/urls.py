@@ -60,8 +60,8 @@ urlpatterns = [
     path('painel/importar/erp/importar/', views.importar_erp,       name='importar_erp'),
 
     # ── Busca Avançada (NEW) ──────────────────────────────
-    path('painel/busca-avancada/',        views.busca_avancada,     name='busca_avancada'),
-    path('ajax/busca-avancada/',          views.busca_avancada_ajax, name='busca_avancada_ajax'),
+    # path('painel/busca-avancada/',        views.busca_avancada,     name='busca_avancada'),
+    # path('ajax/busca-avancada/',          views.busca_avancada_ajax, name='busca_avancada_ajax'),
 
 #     # ── Chat Simples (NEW) ────────────────────────────────
 #     path('devolucao/<int:devolucao_id>/chat/',    views.chat_view,        name='chat_view'),
