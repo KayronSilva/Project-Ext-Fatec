@@ -63,9 +63,8 @@ urlpatterns = [
     path('painel/busca-avancada/',        views.busca_avancada,     name='busca_avancada'),
     path('ajax/busca-avancada/',          views.busca_avancada_ajax, name='busca_avancada_ajax'),
 
-    # ── Chat Simples (NEW) ────────────────────────────────
-    path('devolucao/<int:devolucao_id>/chat/',    views.chat_view,        name='chat_view'),
-    path('ajax/chat/<int:devolucao_id>/enviar/',  views.enviar_mensagem,  name='enviar_mensagem'),
-    path('ajax/chat/<int:devolucao_id>/carregar/', views.carregar_mensagens, name='carregar_mensagens'),
+#     # ── Chat Simples (NEW) ────────────────────────────────
+#     path('devolucao/<int:devolucao_id>/chat/',    views.chat_view,        name='chat_view'),
+#     path('ajax/chat/<int:devolucao_id>/enviar/',  views.enviar_mensagem,  name='enviar_mensagem'),
+#     path('ajax/chat/<int:devolucao_id>/carregar/', views.carregar_mensagens, name='carregar_mensagens'),
 ]
-

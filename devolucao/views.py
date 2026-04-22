@@ -2623,18 +2623,18 @@ logger = logging.getLogger(__name__)
 # # Adicionar no final de views.py (ou importar de cá)
 # # ════════════════════════════════════════════════════════
 
-# import json
-# from datetime import date
-# from django.shortcuts import render, get_object_or_404
-# from django.http import JsonResponse
-# from django.views.decorators.http import require_GET
-# from django.db.models import Sum, Count, F, Q, Prefetch
-# from django.core.serializers.json import DjangoJSONEncoder
+import json
+from datetime import date
+from django.shortcuts import render, get_object_or_404
+from django.http import JsonResponse
+from django.views.decorators.http import require_GET
+from django.db.models import Sum, Count, F, Q, Prefetch
+from django.core.serializers.json import DjangoJSONEncoder
 
-# # Os imports abaixo já existem em views.py — não duplicar
-# # from .models import NotaFiscal, ItemNotaFiscal, ItemDevolucao, Devolucao, ConfiguracaoSistema
-# # from .decorators import admin_required, cliente_required
-# # from .views import _get_clientes_vinculados_do_usuario, _checar_prazo
+# Os imports abaixo já existem em views.py — não duplicar
+# from .models import NotaFiscal, ItemNotaFiscal, ItemDevolucao, Devolucao, ConfiguracaoSistema
+# from .decorators import admin_required, cliente_required
+# from .views import _get_clientes_vinculados_do_usuario, _checar_prazo
 
 
 # ════════════════════════════════════════════════════════

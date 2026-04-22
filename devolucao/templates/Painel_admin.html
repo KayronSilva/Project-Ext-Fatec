@@ -239,6 +239,11 @@
         <div class="page-header__actions">
               <a href="{% url 'acompanhar_devolucoes' %}" class="btn btn-ghost">Minha área</a>
               <a href="{% url 'importar_notas' %}" class="btn btn-ghost">📥 Importar Notas</a>
+
+              <a href="{% url 'portal_vendas' %}" class="btn btn-ghost">
+                  📊 Portal de vendas
+              </a>
+
               {% if pode_gerenciar_admins %}
               <a href="{% url 'gestao_usuarios' %}" class="btn btn-ghost">⚙ Gestão de Usuários</a>
               {% endif %}

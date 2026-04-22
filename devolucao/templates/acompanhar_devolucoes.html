@@ -37,6 +37,12 @@
                 💬 WhatsApp
             </a>
             {% endif %}
+
+            {# ── NOVO: botão Minhas Compras ── #}
+            <a href="{% url 'minhas_compras' %}" class="btn btn-ghost">
+                🛒 Minhas compras
+            </a>
+
             <button class="btn-perfil" id="btn-abrir-perfil" type="button">
                 <div class="btn-perfil__avatar" id="avatar-iniciais">{{ iniciais_usuario }}</div>
                 <span id="perfil-nome-header">{{ primeiro_nome }}</span>

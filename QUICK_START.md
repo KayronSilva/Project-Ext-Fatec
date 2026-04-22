@@ -12,9 +12,11 @@ Sistema Django para gerenciar devoluções de produtos. Clientes fazem solicita�
 
 ## 🚀 Rodar em 5 Passos
 
+
+
 ```bash
 # 1. Clonar ou abrir pasta
-cd C:\Users\seu_usuario\Desktop\OldProject2
+cd C:\Users\seu_usuario\Desktop\FATEC---PROJETO-EXT-MAIN
 
 # 2. Ativar virtual environment
 .\venv\Scripts\Activate.ps1
@@ -35,6 +37,9 @@ python manage.py runserver
 ---
 
 ## 📋 Checklist Primeiro Setup
+
+#INSTALE O PYTHON, CRIE O AMBIENTE VIRTUAL, INSTALE O DJANGO
+#INSTALE O MYSQL, CRIE UM BANCO CHAMADO devolucao, DEPOIS CONFIGURE O BANCO NO SETTINGS
 
 - [ ] Python 3.9+ instalado (`python --version`)
 - [ ] MySQL rodando (`mysql -u root -p`)
