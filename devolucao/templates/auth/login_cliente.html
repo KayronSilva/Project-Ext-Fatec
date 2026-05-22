@@ -1,0 +1,1023 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Entrar — Sistema de Devoluções{% endblock %}
+
+{% block extra_css %}
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+<style>
+/* ── RESET COMPLETO PARA A PÁGINA DE LOGIN ──────────────────────────── */
+/*
+  ISOLAMENTO TOTAL: todas as regras usam .lp- como prefixo
+  OU estão sob [data-page="login-cliente"] para não vazar
+  para outros templates.
+  A única regra "global" é o body, mas ela usa .login-page como
+  classe adicionada via JS somente nesta página.
+*/
+
+body.login-page {
+  font-family: 'Outfit', sans-serif;
+  min-height: 100vh;
+  padding: 0;
+  background: #05091a;
+  overflow: hidden;
+}
+
+/* ── LAYOUT SPLIT ────────────────────────────────────────────────────── */
+.lp-shell {
+  display: flex;
+  min-height: 100vh;
+  position: relative;
+}
+
+/* ── PAINEL ESQUERDO: VISUAL / HERO ──────────────────────────────────── */
+.lp-hero {
+  flex: 0 0 70%;
+  background: #05091a;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 44px 52px;
+}
+
+/* Grade Blueprint */
+.lp-hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(29,82,245,.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(29,82,245,.08) 1px, transparent 1px);
+  background-size: 42px 42px;
+  mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, black 40%, transparent 100%);
+  -webkit-mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, black 40%, transparent 100%);
+}
+
+/* Glow azul central */
+.lp-hero::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 45%;
+  transform: translate(-50%, -50%);
+  width: 380px;
+  height: 380px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(29,82,245,.22) 0%, transparent 70%);
+  animation: lpPulse 4s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes lpPulse {
+  0%,100% { transform: translate(-50%,-50%) scale(1); opacity: .8; }
+  50%      { transform: translate(-50%,-50%) scale(1.12); opacity: 1; }
+}
+
+/* Orbe decorativo */
+.lp-orb {
+  position: absolute;
+  border-radius: 50%;
+  border: 1px solid rgba(29,82,245,.18);
+  animation: lpRotate 22s linear infinite;
+  pointer-events: none;
+}
+.lp-orb-1 { width: 260px; height: 260px; top: 50%; left: 50%; margin: -130px 0 0 -130px; }
+.lp-orb-2 { width: 380px; height: 380px; top: 50%; left: 50%; margin: -190px 0 0 -190px; animation-duration: 32s; animation-direction: reverse; }
+.lp-orb-3 { width: 500px; height: 500px; top: 50%; left: 50%; margin: -250px 0 0 -250px; animation-duration: 44s; border-color: rgba(29,82,245,.08); }
+
+.lp-orb::after {
+  content: '';
+  position: absolute;
+  top: -3px; left: 40%;
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: #1d52f5;
+  box-shadow: 0 0 10px 3px rgba(29,82,245,.6);
+}
+
+@keyframes lpRotate {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+/* Conteúdo hero */
+.lp-hero-logo {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.lp-hero-logo-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: #1d52f5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  box-shadow: 0 0 0 1px rgba(255,255,255,.12), 0 4px 16px rgba(29,82,245,.5);
+}
+
+.lp-hero-logo-text {
+  font-family: 'Outfit', sans-serif;
+  font-size: 15px;
+  font-weight: 600;
+  color: rgba(255,255,255,.9);
+  letter-spacing: -.2px;
+}
+
+.lp-hero-center {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 40px 0;
+}
+
+.lp-hero-eyebrow {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .18em;
+  color: #1d52f5;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.lp-hero-eyebrow::before {
+  content: '';
+  display: inline-block;
+  width: 22px;
+  height: 1.5px;
+  background: #1d52f5;
+  border-radius: 2px;
+}
+
+.lp-hero-title {
+  font-family: 'DM Serif Display', serif;
+  font-size: clamp(30px, 3vw, 42px);
+  line-height: 1.15;
+  color: #fff;
+  margin-bottom: 20px;
+  letter-spacing: -.5px;
+}
+.lp-hero-title em {
+  font-style: italic;
+  color: rgba(255,255,255,.55);
+}
+
+.lp-hero-desc {
+  font-size: 14px;
+  line-height: 1.7;
+  color: rgba(255,255,255,.45);
+  max-width: 320px;
+  font-weight: 300;
+}
+
+/* Stats */
+.lp-stats {
+  display: flex;
+  gap: 28px;
+  margin-top: 44px;
+}
+.lp-stat {
+  position: relative;
+}
+.lp-stat-num {
+  font-family: 'Outfit', sans-serif;
+  font-size: 24px;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: -1px;
+  line-height: 1;
+}
+.lp-stat-num span {
+  font-size: 14px;
+  font-weight: 500;
+  color: #1d52f5;
+}
+.lp-stat-label {
+  font-size: 11px;
+  color: rgba(255,255,255,.35);
+  margin-top: 4px;
+  font-weight: 400;
+}
+
+/* Testemunho */
+.lp-testimonial {
+  position: relative;
+  z-index: 1;
+  padding: 20px 22px;
+  background: rgba(255,255,255,.04);
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 14px;
+  backdrop-filter: blur(12px);
+}
+.lp-testimonial-text {
+  font-size: 13px;
+  line-height: 1.65;
+  color: rgba(255,255,255,.6);
+  font-weight: 300;
+  margin-bottom: 14px;
+}
+.lp-testimonial-author {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.lp-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #1d52f5, #7c3aed);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: .5px;
+  flex-shrink: 0;
+}
+.lp-author-name {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: rgba(255,255,255,.8);
+}
+.lp-author-role {
+  font-size: 11px;
+  color: rgba(255,255,255,.35);
+}
+
+/* ── PAINEL DIREITO: FORMULÁRIO ──────────────────────────────────────── */
+.lp-form-panel {
+  flex: 1;
+  background: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 40px;
+  position: relative;
+  overflow-y: auto;
+}
+
+.lp-form-panel::before {
+  content: '';
+  position: absolute;
+  top: -120px; right: -120px;
+  width: 340px; height: 340px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(29,82,245,.04) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.lp-form-inner {
+  width: 100%;
+  max-width: 400px;
+  animation: lpRise .5s cubic-bezier(.22,1,.36,1) both;
+}
+
+@keyframes lpRise {
+  from { opacity: 0; transform: translateY(22px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Cabeçalho do form */
+.lp-form-header {
+  margin-bottom: 36px;
+}
+
+.lp-form-greeting {
+  font-size: 11.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .16em;
+  color: #1d52f5;
+  margin-bottom: 10px;
+}
+
+.lp-form-title {
+  font-family: 'DM Serif Display', serif;
+  font-size: 30px;
+  letter-spacing: -.4px;
+  color: #0d1117;
+  line-height: 1.2;
+  margin-bottom: 8px;
+}
+
+.lp-form-subtitle {
+  font-size: 14px;
+  color: #6b7280;
+  font-weight: 400;
+  line-height: 1.5;
+}
+
+/* Alerta de erro global */
+.lp-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 13px 16px;
+  border-radius: 10px;
+  background: #fff1f2;
+  border: 1.5px solid #fca5a5;
+  color: #b91c1c;
+  font-size: 13.5px;
+  font-weight: 500;
+  margin-bottom: 24px;
+  animation: lpShake .4s cubic-bezier(.36,.07,.19,.97);
+}
+.lp-alert svg { flex-shrink: 0; margin-top: 1px; }
+
+@keyframes lpShake {
+  0%,100% { transform: translateX(0); }
+  20%     { transform: translateX(-5px); }
+  40%     { transform: translateX(5px); }
+  60%     { transform: translateX(-3px); }
+  80%     { transform: translateX(3px); }
+}
+
+/* Floating label field */
+.lp-field {
+  position: relative;
+  margin-bottom: 20px;
+}
+
+.lp-input {
+  width: 100%;
+  box-sizing: border-box;
+  font-family: 'Outfit', sans-serif;
+  font-size: 15px;
+  font-weight: 400;
+  color: #0d1117;
+  background: #f8fafd;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 22px 16px 8px;
+  outline: none;
+  transition:
+    border-color .2s ease,
+    box-shadow .2s ease,
+    background .2s ease;
+  -webkit-appearance: none;
+}
+.lp-input:hover {
+  border-color: #b0bcd4;
+  background: #f4f7fc;
+}
+.lp-input:focus {
+  border-color: #1d52f5;
+  background: #fff;
+  box-shadow: 0 0 0 4px rgba(29,82,245,.1);
+}
+.lp-input.lp-error {
+  border-color: #ef4444;
+  background: #fff8f8;
+  box-shadow: 0 0 0 4px rgba(239,68,68,.08);
+}
+.lp-input.lp-success {
+  border-color: #10b981;
+  background: #f0fdf9;
+}
+
+/* Input com ação (ex: mostrar senha) */
+.lp-input-wrap {
+  position: relative;
+}
+.lp-input-wrap .lp-input {
+  padding-right: 46px;
+}
+.lp-input-action {
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  color: #9ca3af;
+  display: flex;
+  align-items: center;
+  transition: color .15s;
+}
+.lp-input-action:hover { color: #1d52f5; }
+
+/* Floating label */
+.lp-label {
+  position: absolute;
+  left: 16px;
+  top: 16px;
+  font-family: 'Outfit', sans-serif;
+  font-size: 15px;
+  font-weight: 400;
+  color: #9ca3af;
+  pointer-events: none;
+  transition:
+    top .18s cubic-bezier(.4,0,.2,1),
+    font-size .18s cubic-bezier(.4,0,.2,1),
+    font-weight .18s,
+    color .18s,
+    letter-spacing .18s;
+  letter-spacing: 0;
+}
+
+/* Sobe o label quando há valor ou foco */
+.lp-field:focus-within .lp-label,
+.lp-field.lp-filled .lp-label {
+  top: 8px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: #1d52f5;
+}
+.lp-field.lp-filled:not(:focus-within) .lp-label {
+  color: #9ca3af;
+}
+.lp-field.lp-error-field .lp-label,
+.lp-field.lp-error-field:focus-within .lp-label {
+  color: #ef4444;
+}
+
+/* Helper text */
+.lp-helper {
+  font-size: 11.5px;
+  margin-top: 5px;
+  padding-left: 2px;
+  font-weight: 500;
+  min-height: 16px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: transparent;
+}
+.lp-helper.lp-helper-err {
+  color: #ef4444;
+  animation: lpFadeIn .2s ease;
+}
+.lp-helper.lp-helper-ok {
+  color: #10b981;
+  animation: lpFadeIn .2s ease;
+}
+
+@keyframes lpFadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Linha: lembrar + esqueci */
+.lp-row-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+  gap: 8px;
+}
+.lp-remember {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #6b7280;
+  cursor: pointer;
+  user-select: none;
+}
+.lp-remember input[type="checkbox"] {
+  width: 15px;
+  height: 15px;
+  accent-color: #1d52f5;
+  cursor: pointer;
+}
+.lp-forgot {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1d52f5;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.lp-forgot:hover { text-decoration: underline; }
+
+/* Botão principal */
+.lp-btn-primary {
+  width: 100%;
+  font-family: 'Outfit', sans-serif;
+  font-size: 15px;
+  font-weight: 600;
+  color: #fff;
+  background: #1d52f5;
+  border: none;
+  border-radius: 10px;
+  padding: 14px 20px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  letter-spacing: -.1px;
+  position: relative;
+  overflow: hidden;
+  transition:
+    transform .15s cubic-bezier(.34,1.56,.64,1),
+    box-shadow .2s ease,
+    background .2s;
+  box-shadow: 0 2px 8px rgba(29,82,245,.3), 0 8px 28px rgba(29,82,245,.2);
+}
+.lp-btn-primary::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(255,255,255,.12) 0%, transparent 60%);
+  border-radius: inherit;
+}
+.lp-btn-primary:hover {
+  background: #1542d6;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(29,82,245,.4), 0 12px 36px rgba(29,82,245,.25);
+}
+.lp-btn-primary:active {
+  transform: scale(.98) translateY(0);
+  box-shadow: 0 1px 4px rgba(29,82,245,.2);
+}
+.lp-btn-primary:disabled {
+  opacity: .5;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+/* Carregando */
+.lp-spinner {
+  width: 16px; height: 16px;
+  border: 2.5px solid rgba(255,255,255,.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: lpSpin .6s linear infinite;
+  display: none;
+}
+@keyframes lpSpin { to { transform: rotate(360deg); } }
+
+/* Divisor */
+.lp-divider {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 24px 0;
+  color: #d1d5db;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: .05em;
+}
+.lp-divider::before,
+.lp-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: #f0f2f7;
+}
+
+/* Botão secundário */
+.lp-btn-secondary {
+  width: 100%;
+  font-family: 'Outfit', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  color: #374151;
+  background: transparent;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 12px 20px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  text-decoration: none;
+  transition:
+    border-color .18s,
+    background .18s,
+    color .18s,
+    transform .15s cubic-bezier(.34,1.56,.64,1);
+}
+.lp-btn-secondary:hover {
+  border-color: #1d52f5;
+  color: #1d52f5;
+  background: #eef3ff;
+  transform: translateY(-1px);
+}
+
+/* Footer links */
+.lp-form-footer {
+  margin-top: 28px;
+  text-align: center;
+}
+.lp-form-footer p {
+  font-size: 12.5px;
+  color: #9ca3af;
+  margin-bottom: 6px;
+}
+.lp-form-footer a {
+  color: #1d52f5;
+  font-weight: 600;
+  text-decoration: none;
+  font-size: 12.5px;
+}
+.lp-form-footer a:hover { text-decoration: underline; }
+.lp-sep { color: #d1d5db; margin: 0 6px; }
+
+/* Trust strip */
+.lp-trust {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  margin-top: 28px;
+  padding-top: 20px;
+  border-top: 1px solid #f0f2f7;
+}
+.lp-trust-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: #b0b8cc;
+  font-weight: 500;
+}
+.lp-trust-item svg { color: #10b981; }
+
+/* ── RESPONSIVO ──────────────────────────────────────────────────────── */
+@media (max-width: 820px) {
+  body.login-page { overflow-y: auto; }
+  .lp-shell { flex-direction: column; }
+  .lp-hero {
+    flex: 0 0 auto;
+    padding: 32px 28px 36px;
+    min-height: 0;
+  }
+  .lp-hero-center { padding: 28px 0 20px; }
+  .lp-testimonial { display: none; }
+  .lp-stats { gap: 20px; }
+  .lp-form-panel { padding: 40px 24px 60px; }
+  .lp-form-inner { max-width: 100%; }
+  .lp-orb-2, .lp-orb-3 { display: none; }
+}
+
+@media (max-width: 420px) {
+  .lp-hero { padding: 24px 20px 28px; }
+  .lp-hero-title { font-size: 26px; }
+  .lp-stats { flex-wrap: wrap; gap: 14px; }
+  .lp-form-panel { padding: 28px 18px 48px; }
+  .lp-form-title { font-size: 26px; }
+  .lp-trust { flex-wrap: wrap; gap: 10px; }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="lp-shell" data-page="login-cliente">
+
+  <!-- ─── PAINEL ESQUERDO ─────────────────────────────── -->
+  <aside class="lp-hero" aria-hidden="true">
+    <!-- Efeitos decorativos -->
+    <div class="lp-orb lp-orb-1"></div>
+    <div class="lp-orb lp-orb-2"></div>
+    <div class="lp-orb lp-orb-3"></div>
+
+    <!-- Logo -->
+    <div class="lp-hero-logo">
+      <div class="lp-hero-logo-icon">↩</div>
+      <span class="lp-hero-logo-text">Sistema de Devoluções</span>
+    </div>
+
+    <!-- Conteúdo central -->
+    <div class="lp-hero-center">
+      <p class="lp-hero-eyebrow">Portal do Cliente</p>
+      <h2 class="lp-hero-title">
+        Devoluções<br>
+        <em>simples &amp;</em><br>
+        rastreáveis.
+      </h2>
+      <p class="lp-hero-desc">
+        Acompanhe cada solicitação em tempo real,
+        do pedido à conclusão — com total
+        transparência.
+      </p>
+
+      <!-- Números -->
+      <div class="lp-stats">
+        <div class="lp-stat">
+          <div class="lp-stat-num">98<span>%</span></div>
+          <div class="lp-stat-label">Satisfação</div>
+        </div>
+        <div class="lp-stat">
+          <div class="lp-stat-num">24<span>h</span></div>
+          <div class="lp-stat-label">Resposta média</div>
+        </div>
+        <div class="lp-stat">
+          <div class="lp-stat-num">0</div>
+          <div class="lp-stat-label">Burocracia</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Testemunho -->
+    <div class="lp-testimonial">
+      <p class="lp-testimonial-text">
+        "O processo virou noite e dia. Antes era uma confusão
+        de e-mails, agora abro o portal e vejo tudo em segundos."
+      </p>
+      <div class="lp-testimonial-author">
+        <div class="lp-avatar">CR</div>
+        <div>
+          <div class="lp-author-name">Carlos R.</div>
+          <div class="lp-author-role">Gerente de Compras · Atacadista</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ─── PAINEL DIREITO: FORMULÁRIO ─────────────────── -->
+  <main class="lp-form-panel">
+    <div class="lp-form-inner">
+
+      <!-- Cabeçalho -->
+      <div class="lp-form-header">
+        <p class="lp-form-greeting">Bem-vindo de volta</p>
+        <h1 class="lp-form-title">Entrar na conta</h1>
+        <p class="lp-form-subtitle">Acesse para acompanhar e gerenciar suas devoluções.</p>
+      </div>
+
+      <!-- Erro global -->
+      {% if error %}
+      <div class="lp-alert" role="alert">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+          <circle cx="8" cy="8" r="7"/>
+          <path d="M8 5v3.5M8 11h.01" stroke-linecap="round"/>
+        </svg>
+        {{ error }}
+      </div>
+      {% endif %}
+
+      <!-- Formulário -->
+      <form method="POST" id="lp-login-form" novalidate>
+        {% csrf_token %}
+
+        <!-- Campo e-mail -->
+        <div class="lp-field" id="field-email">
+          <div class="lp-input-wrap">
+            <input
+              class="lp-input"
+              type="email"
+              name="email"
+              id="id_email"
+              value="{{ form.email.value|default:'' }}"
+              autocomplete="email"
+              autofocus
+              required
+              aria-required="true"
+              aria-describedby="hint-email"
+            >
+            <label class="lp-label" for="id_email">E-mail</label>
+          </div>
+          <div class="lp-helper" id="hint-email"></div>
+        </div>
+
+        <!-- Campo senha -->
+        <div class="lp-field" id="field-senha">
+          <div class="lp-input-wrap">
+            <input
+              class="lp-input"
+              type="password"
+              name="senha"
+              id="id_senha"
+              autocomplete="current-password"
+              required
+              aria-required="true"
+              aria-describedby="hint-senha"
+            >
+            <label class="lp-label" for="id_senha">Senha</label>
+            <button
+              type="button"
+              class="lp-input-action"
+              id="toggle-senha"
+              aria-label="Mostrar ou ocultar senha"
+              title="Mostrar/ocultar senha"
+            >
+              <!-- Ícone olho (visível) -->
+              <svg id="icon-eye" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z"/>
+                <circle cx="12" cy="12" r="3"/>
+              </svg>
+              <!-- Ícone olho cortado (oculto) -->
+              <svg id="icon-eye-off" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="display:none" aria-hidden="true">
+                <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19M1 1l22 22"/>
+              </svg>
+            </button>
+          </div>
+          <div class="lp-helper" id="hint-senha"></div>
+        </div>
+
+        {% comment %} <!-- Lembrar + Esqueci -->
+        <div class="lp-row-meta">
+          <label class="lp-remember">
+            <input type="checkbox" name="lembrar" value="1">
+            Lembrar de mim
+          </label>
+          <a href="{% url 'esqueci_senha' %}" class="lp-forgot">Esqueci minha senha</a>
+        </div> {% endcomment %}
+
+        <!-- CTA -->
+        <button type="submit" class="lp-btn-primary" id="lp-btn-submit">
+          <span id="btn-label">Entrar</span>
+          <div class="lp-spinner" id="btn-spinner" aria-hidden="true"></div>
+          <svg id="btn-arrow" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true">
+            <path d="M3 8h10M9 4l4 4-4 4"/>
+          </svg>
+        </button>
+      </form>
+
+      <!-- Divisor -->
+      <div class="lp-divider" aria-hidden="true">ou</div>
+
+      <!-- Criar conta -->
+      <a href="{% url 'cadastro' %}" class="lp-btn-secondary">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+          <circle cx="8.5" cy="7" r="4"/>
+          <line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/>
+        </svg>
+        Criar uma conta grátis
+      </a>
+
+      <!-- Links de rodapé -->
+      <div class="lp-form-footer">
+        <p>
+          É administrador?
+          <a href="{% url 'login_admin' %}">Acessar painel admin</a>
+          {% if whatsapp_numero %}
+          <span class="lp-sep">•</span>
+          <a href="https://wa.me/{{ whatsapp_numero|cut:' '|cut:'-'|cut:'('|cut:')' }}" target="_blank" rel="noopener">
+            WhatsApp
+          </a>
+          {% endif %}
+        </p>
+      </div>
+
+      <!-- Trust strip -->
+      <div class="lp-trust" aria-label="Certificações de segurança">
+        <span class="lp-trust-item">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          </svg>
+          Conexão segura
+        </span>
+        <span class="lp-trust-item">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true">
+            <rect x="3" y="11" width="18" height="11" rx="2"/>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+          </svg>
+          Dados protegidos
+        </span>
+        <span class="lp-trust-item">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+          LGPD conforme
+        </span>
+      </div>
+
+    </div>
+  </main>
+
+</div>
+
+<script>
+(function () {
+  /* ── Adiciona .login-page ao body (isolado nesta página) ── */
+  document.body.classList.add('login-page');
+
+  /* ── Floating labels: detecta se input tem valor ─────────── */
+  function syncFilled(input) {
+    var field = input.closest('.lp-field');
+    if (!field) return;
+    if (input.value.trim().length > 0) {
+      field.classList.add('lp-filled');
+    } else {
+      field.classList.remove('lp-filled');
+    }
+  }
+
+  document.querySelectorAll('.lp-input').forEach(function (inp) {
+    syncFilled(inp); // caso já venha com valor (erro de servidor)
+    inp.addEventListener('input', function () { syncFilled(inp); });
+    inp.addEventListener('change', function () { syncFilled(inp); });
+  });
+
+  /* ── Toggle visibilidade da senha ────────────────────────── */
+  var btnToggle = document.getElementById('toggle-senha');
+  var inputSenha = document.getElementById('id_senha');
+  var iconEye = document.getElementById('icon-eye');
+  var iconEyeOff = document.getElementById('icon-eye-off');
+
+  if (btnToggle && inputSenha) {
+    btnToggle.addEventListener('click', function () {
+      var visible = inputSenha.type === 'text';
+      inputSenha.type = visible ? 'password' : 'text';
+      iconEye.style.display = visible ? '' : 'none';
+      iconEyeOff.style.display = visible ? 'none' : '';
+      btnToggle.setAttribute('aria-label', visible ? 'Mostrar senha' : 'Ocultar senha');
+    });
+  }
+
+  /* ── Validação inline básica ──────────────────────────────── */
+  var emailInput = document.getElementById('id_email');
+  var hintEmail  = document.getElementById('hint-email');
+  var fieldEmail = document.getElementById('field-email');
+
+  function validateEmail(val) {
+    if (!val) return '';
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val) ? 'ok' : 'err';
+  }
+
+  if (emailInput) {
+    emailInput.addEventListener('blur', function () {
+      var v = validateEmail(emailInput.value.trim());
+      fieldEmail.classList.toggle('lp-error-field', v === 'err');
+      emailInput.classList.toggle('lp-error', v === 'err');
+      emailInput.classList.toggle('lp-success', v === 'ok');
+
+      if (v === 'err') {
+        hintEmail.textContent = '✕ E-mail inválido';
+        hintEmail.className = 'lp-helper lp-helper-err';
+      } else if (v === 'ok') {
+        hintEmail.textContent = '✓ E-mail válido';
+        hintEmail.className = 'lp-helper lp-helper-ok';
+      } else {
+        hintEmail.textContent = '';
+        hintEmail.className = 'lp-helper';
+      }
+    });
+    emailInput.addEventListener('input', function () {
+      // Limpa erro enquanto digita
+      if (fieldEmail.classList.contains('lp-error-field')) {
+        fieldEmail.classList.remove('lp-error-field');
+        emailInput.classList.remove('lp-error');
+        hintEmail.textContent = '';
+        hintEmail.className = 'lp-helper';
+      }
+    });
+  }
+
+  /* ── Spinner no submit ───────────────────────────────────── */
+  var form      = document.getElementById('lp-login-form');
+  var btnSubmit = document.getElementById('lp-btn-submit');
+  var btnLabel  = document.getElementById('btn-label');
+  var btnArrow  = document.getElementById('btn-arrow');
+  var spinner   = document.getElementById('btn-spinner');
+
+  if (form && btnSubmit) {
+    form.addEventListener('submit', function (e) {
+      var emailOk = emailInput && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailInput.value.trim());
+      var senhaOk = inputSenha && inputSenha.value.length > 0;
+
+      if (!emailOk || !senhaOk) {
+        e.preventDefault();
+        if (!emailOk && emailInput) {
+          fieldEmail.classList.add('lp-error-field');
+          emailInput.classList.add('lp-error');
+          hintEmail.textContent = '✕ Preencha um e-mail válido';
+          hintEmail.className = 'lp-helper lp-helper-err';
+          emailInput.focus();
+        }
+        if (!senhaOk && inputSenha) {
+          var fs = document.getElementById('field-senha');
+          inputSenha.classList.add('lp-error');
+          if (fs) fs.classList.add('lp-error-field');
+          var hs = document.getElementById('hint-senha');
+          if (hs) { hs.textContent = '✕ Insira sua senha'; hs.className = 'lp-helper lp-helper-err'; }
+          if (emailOk) inputSenha.focus();
+        }
+        return;
+      }
+
+      /* Loading state */
+      btnSubmit.disabled = true;
+      btnLabel.textContent = 'Entrando…';
+      spinner.style.display = 'block';
+      btnArrow.style.display = 'none';
+    });
+  }
+})();
+</script>
+{% endblock %}

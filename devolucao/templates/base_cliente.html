@@ -1,0 +1,93 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block extra_css %}
+<style>
+    /* ═══ HEADER CLIENTE ═══ */
+    .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; flex-wrap: wrap; gap: 12px; }
+    .page-header__text h1 { font-size: 20px; font-weight: 700; }
+    .page-header__text p  { font-size: 13px; color: var(--text-muted); margin-top: 2px; }
+    .page-header__actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+    /* ═══ BTN PERFIL ═══ */
+    .btn-perfil { display: flex; align-items: center; gap: 8px; padding: 7px 14px; background: var(--surface-2); border: 1.5px solid var(--border-strong); border-radius: var(--r-full); font-size: 12.5px; font-weight: 600; color: var(--text-2); cursor: pointer; transition: all .15s; font-family: inherit; }
+    .btn-perfil:hover { border-color: var(--blue); color: var(--blue); background: var(--blue-bg); transform: translateY(-1px); box-shadow: var(--shadow-xs); }
+    .btn-perfil__avatar { width: 26px; height: 26px; border-radius: 50%; background: var(--blue); display: flex; align-items: center; justify-content: center; color: #fff; font-size: 11px; font-weight: 700; flex-shrink: 0; }
+
+    /* ═══ PROGRESSO DEVOLUÇÃO ═══ */
+    .dev-progress-wrap { display: flex; align-items: center; gap: 8px; }
+    .dev-progress-bar { flex: 1; height: 5px; background: var(--border); border-radius: 99px; overflow: hidden; }
+    .dev-progress-fill { height: 100%; border-radius: 99px; background: var(--blue); transition: width .3s; }
+    .dev-progress-fill--full { background: var(--red); }
+    .dev-progress-label { font-size: 11px; color: var(--text-muted); white-space: nowrap; }
+
+    /* ═══ PRAZO BADGE ═══ */
+    .prazo-badge { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 99px; }
+    .prazo-badge--ok       { background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; }
+    .prazo-badge--urgente  { background: #fff7ed; color: #c2410c; border: 1px solid #fed7aa; }
+    .prazo-badge--expirado { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
+    .prazo-badge--sem-data { background: var(--surface-2); color: var(--text-faint); border: 1px solid var(--border); }
+
+    /* ═══ BTN DEVOLVER ═══ */
+    .btn-devolver { display: inline-flex; align-items: center; gap: 5px; padding: 5px 12px; background: var(--blue); color: #fff; border: none; border-radius: var(--r-sm); font-size: 11.5px; font-weight: 600; font-family: inherit; cursor: pointer; transition: opacity .15s, transform .15s; white-space: nowrap; }
+    .btn-devolver:hover { opacity: .88; transform: translateY(-1px); }
+    .btn-devolver:disabled { opacity: .4; cursor: not-allowed; transform: none; }
+    .btn-devolver--ghost { background: var(--surface-2); color: var(--text-2); border: 1.5px solid var(--border); }
+    .btn-devolver--ghost:hover { border-color: var(--blue); color: var(--blue); opacity: 1; }
+
+    /* ═══ ITEM CARD ═══ */
+    .item-card { display: flex; align-items: flex-start; gap: 14px; padding: 14px 16px; border: 1.5px solid var(--border); border-radius: var(--r-sm); margin-bottom: 8px; }
+    .item-icon { font-size: 20px; flex-shrink: 0; margin-top: 2px; }
+    .item-info { flex: 1; }
+    .item-desc { font-size: 13.5px; font-weight: 600; }
+    .item-code { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+    .qty-pill { display: flex; align-items: baseline; gap: 3px; padding: 4px 10px; background: var(--surface-2); border-radius: var(--r-full); font-size: 13px; color: var(--text-2); flex-shrink: 0; }
+    .qty-pill strong { font-size: 16px; color: var(--text); }
+    .qty-pill span { font-size: 11px; color: var(--text-muted); }
+
+    /* ═══ DEV PILL (modal) ═══ */
+    .modal-devs-section { padding: 14px 24px; background: var(--surface-2); border-top: 1px solid var(--border); flex-shrink: 0; }
+    .modal-devs-title { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--text-faint); margin-bottom: 10px; }
+    .dev-pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border: 1.5px solid var(--border); border-radius: 99px; font-size: 11.5px; font-weight: 600; color: var(--text-2); background: var(--surface-3); margin: 3px; cursor: pointer; transition: border-color .15s; }
+    .dev-pill:hover { border-color: var(--blue); color: var(--blue); }
+
+    /* ═══ NOTA STATUS (cliente) ═══ */
+    .nota-status-ativa     { color: #15803d; background: #f0fdf4; border-color: #bbf7d0; }
+    .nota-status-devolvida { color: #7c3aed; background: #faf5ff; border-color: #e9d5ff; }
+    .nota-status-cancelada { color: #991b1b; background: #fef2f2; border-color: #fecaca; }
+
+    /* ═══ FOTO THUMB ═══ */
+    .item-foto-wrap { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+    .item-foto-thumb { width: 52px; height: 52px; object-fit: cover; border-radius: 6px; border: 1.5px solid var(--border); cursor: zoom-in; transition: transform .15s, box-shadow .15s; }
+    .item-foto-thumb:hover { transform: scale(1.06); box-shadow: 0 4px 14px rgba(0,0,0,.18); }
+</style>
+{% endblock %}
+
+{% block navbar %}
+<div class="page-wrapper page-wrapper--wide" style="padding-bottom:0">
+    <div class="page-header">
+        <div class="page-header__text">
+            <h1>{% block page_title %}Minha Conta{% endblock %}</h1>
+            <p>{% block page_subtitle %}{% endblock %}</p>
+        </div>
+        <div class="page-header__actions">
+            {% if whatsapp_numero %}
+            <a href="https://wa.me/{{ whatsapp_numero|cut:' '|cut:'-'|cut:'('|cut:')' }}"
+               class="btn btn-ghost" target="_blank"
+               style="background:#25d366;color:white;border-color:#25d366;">
+                💬 WhatsApp
+            </a>
+            {% endif %}
+            <button class="btn-perfil" id="btn-abrir-perfil" type="button">
+                <div class="btn-perfil__avatar">{{ iniciais_usuario }}</div>
+                <span>{{ primeiro_nome }}</span>
+            </button>
+            {% block cliente_actions %}
+            <a href="{% url 'portal_vendas' %}" class="btn btn-ghost">🛒 Compras</a>
+            <a href="{% url 'acompanhar_devolucoes' %}" class="btn btn-ghost">🔄 Devoluções</a>
+            {% endblock %}
+            <a href="{% url 'logout' %}" class="btn btn-ghost">Sair</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

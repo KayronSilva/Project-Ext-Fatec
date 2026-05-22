@@ -1,0 +1,816 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Painel Admin — Sistema de Devoluções{% endblock %}
+
+{% block extra_css %}
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+<style>
+/*
+  ISOLAMENTO: todas as regras usam prefixo .la- (login-admin)
+  ou estão sob body.login-admin-page (classe adicionada via JS).
+  Nenhuma regra genérica é alterada — zero vazamento para outros templates.
+*/
+
+body.login-admin-page {
+  font-family: 'Outfit', sans-serif;
+  min-height: 100vh;
+  padding: 0;
+  background: #0b0e18;
+  overflow: hidden;
+}
+
+/* ── LAYOUT SPLIT ──────────────────────────────────────── */
+.la-shell {
+  display: flex;
+  min-height: 100vh;
+}
+
+/* ── PAINEL ESQUERDO ───────────────────────────────────── */
+.la-hero {
+  flex: 0 0 70%;
+  background: #0b0e18;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 44px 52px;
+}
+
+/* Grade hexagonal discreta */
+.la-hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(245,158,11,.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(245,158,11,.07) 1px, transparent 1px);
+  background-size: 40px 40px;
+  mask-image: radial-gradient(ellipse 85% 80% at 50% 45%, black 30%, transparent 100%);
+  -webkit-mask-image: radial-gradient(ellipse 85% 80% at 50% 45%, black 30%, transparent 100%);
+}
+
+/* Glow âmbar central */
+.la-hero::after {
+  content: '';
+  position: absolute;
+  left: 50%; top: 42%;
+  transform: translate(-50%, -50%);
+  width: 360px; height: 360px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(245,158,11,.14) 0%, transparent 70%);
+  animation: laPulse 5s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes laPulse {
+  0%,100% { transform: translate(-50%,-50%) scale(1);    opacity: .7; }
+  50%      { transform: translate(-50%,-50%) scale(1.1); opacity: 1;  }
+}
+
+/* Orbes */
+.la-orb {
+  position: absolute;
+  border-radius: 50%;
+  border: 1px solid rgba(245,158,11,.14);
+  animation: laRotate 26s linear infinite;
+  pointer-events: none;
+}
+.la-orb-1 { width: 220px; height: 220px; top: 50%; left: 50%; margin: -110px 0 0 -110px; }
+.la-orb-2 { width: 340px; height: 340px; top: 50%; left: 50%; margin: -170px 0 0 -170px; animation-duration: 38s; animation-direction: reverse; border-color: rgba(245,158,11,.07); }
+.la-orb-3 { width: 460px; height: 460px; top: 50%; left: 50%; margin: -230px 0 0 -230px; animation-duration: 52s; border-color: rgba(245,158,11,.04); }
+
+.la-orb::after {
+  content: '';
+  position: absolute;
+  top: -4px; left: 38%;
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: #f59e0b;
+  box-shadow: 0 0 12px 4px rgba(245,158,11,.55);
+}
+
+@keyframes laRotate {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+/* Logo */
+.la-hero-logo {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.la-hero-logo-icon {
+  width: 38px; height: 38px;
+  border-radius: 10px;
+  background: #f59e0b;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px;
+  box-shadow: 0 0 0 1px rgba(255,255,255,.1), 0 4px 16px rgba(245,158,11,.45);
+}
+.la-hero-logo-text {
+  font-size: 15px; font-weight: 600;
+  color: rgba(255,255,255,.85);
+  letter-spacing: -.2px;
+}
+
+/* Centro do hero */
+.la-hero-center {
+  position: relative; z-index: 1;
+  flex: 1;
+  display: flex; flex-direction: column; justify-content: center;
+  padding: 40px 0;
+}
+.la-hero-eyebrow {
+  font-size: 11px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .18em;
+  color: #f59e0b;
+  margin-bottom: 20px;
+  display: flex; align-items: center; gap: 8px;
+}
+.la-hero-eyebrow::before {
+  content: '';
+  display: inline-block;
+  width: 22px; height: 1.5px;
+  background: #f59e0b; border-radius: 2px;
+}
+.la-hero-title {
+  font-family: 'DM Serif Display', serif;
+  font-size: clamp(28px, 3vw, 40px);
+  line-height: 1.18;
+  color: #fff;
+  margin-bottom: 20px;
+  letter-spacing: -.4px;
+}
+.la-hero-title em {
+  font-style: italic;
+  color: rgba(255,255,255,.45);
+}
+.la-hero-desc {
+  font-size: 13.5px; line-height: 1.7;
+  color: rgba(255,255,255,.4);
+  max-width: 300px;
+  font-weight: 300;
+}
+
+/* Permissões */
+.la-perms {
+  display: flex; flex-direction: column;
+  gap: 10px; margin-top: 38px;
+}
+.la-perm-item {
+  display: flex; align-items: center; gap: 10px;
+  font-size: 13px; color: rgba(255,255,255,.55);
+  font-weight: 400;
+}
+.la-perm-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: #f59e0b; flex-shrink: 0;
+  box-shadow: 0 0 6px 2px rgba(245,158,11,.4);
+}
+
+/* Aviso de área restrita */
+.la-restricted {
+  position: relative; z-index: 1;
+  padding: 16px 18px;
+  background: rgba(245,158,11,.07);
+  border: 1px solid rgba(245,158,11,.18);
+  border-radius: 12px;
+  backdrop-filter: blur(10px);
+  display: flex; align-items: flex-start; gap: 12px;
+}
+.la-restricted-icon {
+  width: 32px; height: 32px; border-radius: 8px;
+  background: rgba(245,158,11,.15);
+  border: 1px solid rgba(245,158,11,.25);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 15px; flex-shrink: 0; margin-top: 1px;
+}
+.la-restricted-title {
+  font-size: 12px; font-weight: 700;
+  color: #f59e0b; margin-bottom: 4px;
+  text-transform: uppercase; letter-spacing: .07em;
+}
+.la-restricted-text {
+  font-size: 12px; line-height: 1.55;
+  color: rgba(255,255,255,.4); font-weight: 300;
+}
+
+/* ── PAINEL DIREITO: FORMULÁRIO ────────────────────────── */
+.la-form-panel {
+  flex: 1;
+  background: #ffffff;
+  display: flex; align-items: center; justify-content: center;
+  padding: 48px 40px;
+  position: relative;
+  overflow-y: auto;
+}
+.la-form-panel::before {
+  content: '';
+  position: absolute;
+  top: -100px; right: -100px;
+  width: 300px; height: 300px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(245,158,11,.05) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.la-form-inner {
+  width: 100%; max-width: 400px;
+  animation: laRise .48s cubic-bezier(.22,1,.36,1) both;
+}
+
+@keyframes laRise {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Badge "Área Administrativa" */
+.la-admin-badge {
+  display: inline-flex;
+  align-items: center; gap: 6px;
+  padding: 4px 12px;
+  background: #fffbeb;
+  border: 1.5px solid #fcd34d;
+  border-radius: 9999px;
+  font-size: 10.5px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .1em;
+  color: #92400e;
+  margin-bottom: 20px;
+}
+.la-admin-badge::before {
+  content: '';
+  width: 6px; height: 6px; border-radius: 50%;
+  background: #f59e0b;
+  box-shadow: 0 0 5px 1px rgba(245,158,11,.5);
+  animation: laBlink 2.2s ease-in-out infinite;
+}
+@keyframes laBlink {
+  0%,100% { opacity: 1; }
+  50%      { opacity: .3; }
+}
+
+/* Cabeçalho do form */
+.la-form-header { margin-bottom: 32px; }
+.la-form-greeting {
+  font-size: 11px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .16em;
+  color: #f59e0b; margin-bottom: 10px;
+}
+.la-form-title {
+  font-family: 'DM Serif Display', serif;
+  font-size: 29px; letter-spacing: -.4px;
+  color: #0d1117; line-height: 1.2; margin-bottom: 7px;
+}
+.la-form-subtitle {
+  font-size: 13.5px; color: #6b7280;
+  font-weight: 400; line-height: 1.5;
+}
+
+/* Alerta de erro */
+.la-alert {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 12px 15px;
+  border-radius: 10px;
+  background: #fff1f2; border: 1.5px solid #fca5a5;
+  color: #b91c1c;
+  font-size: 13px; font-weight: 500;
+  margin-bottom: 22px;
+  animation: laShake .4s cubic-bezier(.36,.07,.19,.97);
+}
+.la-alert svg { flex-shrink: 0; margin-top: 1px; }
+
+@keyframes laShake {
+  0%,100% { transform: translateX(0); }
+  20%     { transform: translateX(-5px); }
+  40%     { transform: translateX(5px); }
+  60%     { transform: translateX(-3px); }
+  80%     { transform: translateX(3px); }
+}
+
+/* Floating label field */
+.la-field {
+  position: relative;
+  margin-bottom: 18px;
+}
+.la-input {
+  width: 100%; box-sizing: border-box;
+  font-family: 'Outfit', sans-serif;
+  font-size: 15px; font-weight: 400;
+  color: #0d1117;
+  background: #f8fafd;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 22px 16px 8px;
+  outline: none;
+  transition: border-color .2s, box-shadow .2s, background .2s;
+  -webkit-appearance: none;
+}
+.la-input:hover  { border-color: #b0bcd4; background: #f4f7fc; }
+.la-input:focus  { border-color: #f59e0b; background: #fff; box-shadow: 0 0 0 4px rgba(245,158,11,.12); }
+.la-input.la-error   { border-color: #ef4444; background: #fff8f8; box-shadow: 0 0 0 4px rgba(239,68,68,.07); }
+.la-input.la-success { border-color: #10b981; background: #f0fdf9; }
+
+.la-input-wrap { position: relative; }
+.la-input-wrap .la-input { padding-right: 46px; }
+.la-input-action {
+  position: absolute; right: 14px; top: 50%;
+  transform: translateY(-50%);
+  background: none; border: none; cursor: pointer;
+  padding: 4px; color: #9ca3af;
+  display: flex; align-items: center;
+  transition: color .15s;
+}
+.la-input-action:hover { color: #f59e0b; }
+
+/* Floating label */
+.la-label {
+  position: absolute;
+  left: 16px; top: 16px;
+  font-family: 'Outfit', sans-serif;
+  font-size: 15px; font-weight: 400;
+  color: #9ca3af;
+  pointer-events: none;
+  transition: top .18s cubic-bezier(.4,0,.2,1), font-size .18s, font-weight .18s, color .18s, letter-spacing .18s;
+  letter-spacing: 0;
+}
+.la-field:focus-within .la-label,
+.la-field.la-filled .la-label {
+  top: 8px; font-size: 9.5px; font-weight: 700;
+  letter-spacing: .1em; text-transform: uppercase;
+  color: #d97706;
+}
+.la-field.la-filled:not(:focus-within) .la-label { color: #9ca3af; }
+.la-field.la-error-field .la-label,
+.la-field.la-error-field:focus-within .la-label { color: #ef4444; }
+
+/* Helper */
+.la-helper {
+  font-size: 11.5px; margin-top: 5px; padding-left: 2px;
+  font-weight: 500; min-height: 16px;
+  display: flex; align-items: center; gap: 4px;
+  color: transparent;
+}
+.la-helper.la-err { color: #ef4444; animation: laFadeIn .2s ease; }
+.la-helper.la-ok  { color: #10b981; animation: laFadeIn .2s ease; }
+
+@keyframes laFadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Linha meta */
+.la-row-meta {
+  display: flex; align-items: center;
+  justify-content: space-between;
+  margin-bottom: 22px; gap: 8px;
+}
+.la-remember {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 13px; color: #6b7280;
+  cursor: pointer; user-select: none;
+}
+.la-remember input[type="checkbox"] {
+  width: 15px; height: 15px;
+  accent-color: #f59e0b; cursor: pointer;
+}
+
+/* Botão principal — âmbar */
+.la-btn-primary {
+  width: 100%;
+  font-family: 'Outfit', sans-serif;
+  font-size: 15px; font-weight: 600;
+  color: #0d1117;
+  background: #f59e0b;
+  border: none; border-radius: 10px;
+  padding: 14px 20px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  position: relative; overflow: hidden;
+  transition: transform .15s cubic-bezier(.34,1.56,.64,1), box-shadow .2s, background .2s;
+  box-shadow: 0 2px 8px rgba(245,158,11,.3), 0 8px 28px rgba(245,158,11,.18);
+}
+.la-btn-primary::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: linear-gradient(135deg, rgba(255,255,255,.18) 0%, transparent 60%);
+  border-radius: inherit;
+}
+.la-btn-primary:hover {
+  background: #d97706;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(245,158,11,.4), 0 12px 36px rgba(245,158,11,.22);
+}
+.la-btn-primary:active {
+  transform: scale(.98) translateY(0);
+  box-shadow: 0 1px 4px rgba(245,158,11,.2);
+}
+.la-btn-primary:disabled {
+  opacity: .5; cursor: not-allowed;
+  transform: none; box-shadow: none;
+}
+
+/* Spinner */
+.la-spinner {
+  width: 16px; height: 16px;
+  border: 2.5px solid rgba(13,17,23,.2);
+  border-top-color: #0d1117;
+  border-radius: 50%;
+  animation: laSpin .6s linear infinite;
+  display: none;
+}
+@keyframes laSpin { to { transform: rotate(360deg); } }
+
+/* Divisor */
+.la-divider {
+  display: flex; align-items: center; gap: 14px;
+  margin: 22px 0;
+  color: #d1d5db; font-size: 12px; font-weight: 500; letter-spacing: .05em;
+}
+.la-divider::before, .la-divider::after {
+  content: ''; flex: 1; height: 1px; background: #f0f2f7;
+}
+
+/* Botão voltar */
+.la-btn-back {
+  width: 100%;
+  font-family: 'Outfit', sans-serif;
+  font-size: 13.5px; font-weight: 600;
+  color: #374151;
+  background: transparent;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 11px 20px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  text-decoration: none;
+  transition: border-color .18s, background .18s, color .18s, transform .15s cubic-bezier(.34,1.56,.64,1);
+}
+.la-btn-back:hover {
+  border-color: #6b7280;
+  color: #111827; background: #f9fafb;
+  transform: translateY(-1px);
+}
+
+/* Footer */
+.la-form-footer {
+  margin-top: 26px; text-align: center;
+  font-size: 12px; color: #9ca3af; line-height: 1.7;
+}
+.la-form-footer a { color: #d97706; font-weight: 600; text-decoration: none; }
+.la-form-footer a:hover { text-decoration: underline; }
+
+/* Trust strip */
+.la-trust {
+  display: flex; align-items: center; justify-content: center;
+  gap: 14px; margin-top: 22px; padding-top: 18px;
+  border-top: 1px solid #f0f2f7;
+}
+.la-trust-item {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 11px; color: #b0b8cc; font-weight: 500;
+}
+
+/* ── RESPONSIVO ────────────────────────────────────────── */
+@media (max-width: 820px) {
+  body.login-admin-page { overflow-y: auto; }
+  .la-shell  { flex-direction: column; }
+  .la-hero   { flex: 0 0 auto; padding: 32px 28px 36px; }
+  .la-hero-center { padding: 24px 0 18px; }
+  .la-restricted  { display: none; }
+  .la-orb-2, .la-orb-3 { display: none; }
+  .la-form-panel  { padding: 40px 24px 60px; }
+  .la-form-inner  { max-width: 100%; }
+}
+
+@media (max-width: 420px) {
+  .la-hero   { padding: 24px 20px 28px; }
+  .la-hero-title { font-size: 24px; }
+  .la-form-panel { padding: 28px 18px 48px; }
+  .la-form-title { font-size: 24px; }
+  .la-trust  { flex-wrap: wrap; gap: 10px; }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="la-shell" data-page="login-admin">
+
+  <!-- ─── PAINEL ESQUERDO ─────────────────────────────── -->
+  <aside class="la-hero" aria-hidden="true">
+    <div class="la-orb la-orb-1"></div>
+    <div class="la-orb la-orb-2"></div>
+    <div class="la-orb la-orb-3"></div>
+
+    <!-- Logo -->
+    <div class="la-hero-logo">
+      <div class="la-hero-logo-icon">⚙</div>
+      <span class="la-hero-logo-text">Painel Administrativo</span>
+    </div>
+
+    <!-- Conteúdo central -->
+    <div class="la-hero-center">
+      <p class="la-hero-eyebrow">Acesso Restrito</p>
+      <h2 class="la-hero-title">
+        Gestão total<br>
+        <em>em um só</em><br>
+        painel.
+      </h2>
+      <p class="la-hero-desc">
+        Controle de notas fiscais, devoluções,
+        clientes e relatórios — tudo centralizado
+        e em tempo real.
+      </p>
+
+      <!-- Funcionalidades disponíveis -->
+      <div class="la-perms">
+        <div class="la-perm-item">
+          <div class="la-perm-dot"></div>
+          Aprovação e recusa de devoluções
+        </div>
+        <div class="la-perm-item">
+          <div class="la-perm-dot"></div>
+          Cadastro e gestão de notas fiscais
+        </div>
+        <div class="la-perm-item">
+          <div class="la-perm-dot"></div>
+          Relatórios e exportação de dados
+        </div>
+        <div class="la-perm-item">
+          <div class="la-perm-dot"></div>
+          Gerenciamento de usuários e permissões
+        </div>
+      </div>
+    </div>
+
+    <!-- Aviso área restrita -->
+    <div class="la-restricted">
+      <div class="la-restricted-icon">⚠</div>
+      <div>
+        <div class="la-restricted-title">Área Restrita</div>
+        <div class="la-restricted-text">
+          Este acesso é exclusivo para administradores autorizados.
+          Tentativas não autorizadas são registradas e monitoradas.
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ─── PAINEL DIREITO: FORMULÁRIO ─────────────────── -->
+  <main class="la-form-panel">
+    <div class="la-form-inner">
+
+      <!-- Badge admin -->
+      <div class="la-admin-badge">
+        Área Administrativa
+      </div>
+
+      <!-- Cabeçalho -->
+      <div class="la-form-header">
+        <p class="la-form-greeting">Painel de controle</p>
+        <h1 class="la-form-title">Entrar no painel</h1>
+        <p class="la-form-subtitle">Gestão de notas fiscais e devoluções.</p>
+      </div>
+
+      <!-- Erro global -->
+      {% if error %}
+      <div class="la-alert" role="alert">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+          <circle cx="8" cy="8" r="7"/>
+          <path d="M8 5v3.5M8 11h.01" stroke-linecap="round"/>
+        </svg>
+        {{ error }}
+      </div>
+      {% endif %}
+
+      <!-- Resolve URLs opcionais sem NoReverseMatch -->
+      {% url 'login' as url_login_cliente %}
+
+      <!-- Formulário -->
+      <form method="POST" id="la-login-form" novalidate>
+        {% csrf_token %}
+
+        <!-- E-mail -->
+        <div class="la-field" id="la-field-email">
+          <div class="la-input-wrap">
+            <input
+              class="la-input"
+              type="email"
+              name="email"
+              id="la_email"
+              value="{{ form.email.value|default:'' }}"
+              autocomplete="email"
+              autofocus
+              required
+              aria-required="true"
+              aria-describedby="la-hint-email"
+            >
+            <label class="la-label" for="la_email">E-mail administrativo</label>
+          </div>
+          <div class="la-helper" id="la-hint-email"></div>
+        </div>
+
+        <!-- Senha -->
+        <div class="la-field" id="la-field-senha">
+          <div class="la-input-wrap">
+            <input
+              class="la-input"
+              type="password"
+              name="senha"
+              id="la_senha"
+              autocomplete="current-password"
+              required
+              aria-required="true"
+              aria-describedby="la-hint-senha"
+            >
+            <label class="la-label" for="la_senha">Senha</label>
+            <button
+              type="button"
+              class="la-input-action"
+              id="la-toggle-senha"
+              aria-label="Mostrar ou ocultar senha"
+            >
+              <svg id="la-icon-eye" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z"/>
+                <circle cx="12" cy="12" r="3"/>
+              </svg>
+              <svg id="la-icon-eye-off" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="display:none" aria-hidden="true">
+                <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19M1 1l22 22"/>
+              </svg>
+            </button>
+          </div>
+          <div class="la-helper" id="la-hint-senha"></div>
+        </div>
+
+        <!-- Lembrar -->
+        <div class="la-row-meta">
+          <label class="la-remember">
+            <input type="checkbox" name="lembrar" value="1">
+            Manter sessão ativa
+          </label>
+        </div>
+
+        <!-- CTA -->
+        <button type="submit" class="la-btn-primary" id="la-btn-submit">
+          <span id="la-btn-label">Entrar no painel</span>
+          <div class="la-spinner" id="la-btn-spinner" aria-hidden="true"></div>
+          <svg id="la-btn-arrow" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true">
+            <path d="M3 8h10M9 4l4 4-4 4"/>
+          </svg>
+        </button>
+      </form>
+
+      <!-- Divisor -->
+      <div class="la-divider" aria-hidden="true">ou</div>
+
+      <!-- Voltar para área do cliente -->
+      {% if url_login_cliente %}
+      <a href="{{ url_login_cliente }}" class="la-btn-back">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M19 12H5M12 19l-7-7 7-7"/>
+        </svg>
+        Voltar para área do cliente
+      </a>
+      {% endif %}
+
+      <!-- Footer -->
+      <div class="la-form-footer">
+        <p>Acesso com restrições de segurança.<br>
+        Todas as ações são registradas em log de auditoria.</p>
+      </div>
+
+      <!-- Trust strip -->
+      <div class="la-trust" aria-label="Segurança">
+        <span class="la-trust-item">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" aria-hidden="true">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          </svg>
+          SSL seguro
+        </span>
+        <span class="la-trust-item">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" aria-hidden="true">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>
+          </svg>
+          Log de auditoria
+        </span>
+        <span class="la-trust-item">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" aria-hidden="true">
+            <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+          </svg>
+          2FA disponível
+        </span>
+      </div>
+
+    </div>
+  </main>
+
+</div>
+
+<script>
+(function () {
+  /* ── Classe isolada no body ──────────────────────────── */
+  document.body.classList.add('login-admin-page');
+
+  /* ── Floating labels ─────────────────────────────────── */
+  function syncFilled(inp) {
+    var f = inp.closest('.la-field');
+    if (!f) return;
+    inp.value.trim() ? f.classList.add('la-filled') : f.classList.remove('la-filled');
+  }
+  document.querySelectorAll('.la-input').forEach(function (inp) {
+    syncFilled(inp);
+    inp.addEventListener('input',  function () { syncFilled(inp); });
+    inp.addEventListener('change', function () { syncFilled(inp); });
+  });
+
+  /* ── Toggle senha ────────────────────────────────────── */
+  var btnToggle  = document.getElementById('la-toggle-senha');
+  var inpSenha   = document.getElementById('la_senha');
+  var iconEye    = document.getElementById('la-icon-eye');
+  var iconEyeOff = document.getElementById('la-icon-eye-off');
+
+  if (btnToggle && inpSenha) {
+    btnToggle.addEventListener('click', function () {
+      var vis = inpSenha.type === 'text';
+      inpSenha.type = vis ? 'password' : 'text';
+      iconEye.style.display    = vis ? ''     : 'none';
+      iconEyeOff.style.display = vis ? 'none' : '';
+      btnToggle.setAttribute('aria-label', vis ? 'Mostrar senha' : 'Ocultar senha');
+    });
+  }
+
+  /* ── Validação inline (e-mail) ───────────────────────── */
+  var inpEmail   = document.getElementById('la_email');
+  var hintEmail  = document.getElementById('la-hint-email');
+  var fieldEmail = document.getElementById('la-field-email');
+
+  function checkEmail(v) {
+    if (!v) return '';
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v) ? 'ok' : 'err';
+  }
+
+  if (inpEmail) {
+    inpEmail.addEventListener('blur', function () {
+      var s = checkEmail(inpEmail.value.trim());
+      fieldEmail.classList.toggle('la-error-field', s === 'err');
+      inpEmail.classList.toggle('la-error',   s === 'err');
+      inpEmail.classList.toggle('la-success', s === 'ok');
+      if (s === 'err') { hintEmail.textContent = '✕ E-mail inválido'; hintEmail.className = 'la-helper la-err'; }
+      else if (s === 'ok') { hintEmail.textContent = '✓ E-mail válido'; hintEmail.className = 'la-helper la-ok'; }
+      else { hintEmail.textContent = ''; hintEmail.className = 'la-helper'; }
+    });
+    inpEmail.addEventListener('input', function () {
+      if (fieldEmail.classList.contains('la-error-field')) {
+        fieldEmail.classList.remove('la-error-field');
+        inpEmail.classList.remove('la-error');
+        hintEmail.textContent = ''; hintEmail.className = 'la-helper';
+      }
+    });
+  }
+
+  /* ── Spinner no submit ───────────────────────────────── */
+  var form      = document.getElementById('la-login-form');
+  var btnSubmit = document.getElementById('la-btn-submit');
+  var btnLabel  = document.getElementById('la-btn-label');
+  var btnArrow  = document.getElementById('la-btn-arrow');
+  var spinner   = document.getElementById('la-btn-spinner');
+
+  if (form && btnSubmit) {
+    form.addEventListener('submit', function (e) {
+      var eOk = inpEmail  && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(inpEmail.value.trim());
+      var sOk = inpSenha  && inpSenha.value.length > 0;
+
+      if (!eOk || !sOk) {
+        e.preventDefault();
+        if (!eOk && inpEmail) {
+          fieldEmail.classList.add('la-error-field');
+          inpEmail.classList.add('la-error');
+          hintEmail.textContent = '✕ Preencha um e-mail válido';
+          hintEmail.className = 'la-helper la-err';
+          inpEmail.focus();
+        }
+        if (!sOk && inpSenha) {
+          var fs = document.getElementById('la-field-senha');
+          var hs = document.getElementById('la-hint-senha');
+          inpSenha.classList.add('la-error');
+          if (fs) fs.classList.add('la-error-field');
+          if (hs) { hs.textContent = '✕ Insira sua senha'; hs.className = 'la-helper la-err'; }
+          if (eOk) inpSenha.focus();
+        }
+        return;
+      }
+
+      btnSubmit.disabled = true;
+      btnLabel.textContent = 'Autenticando…';
+      spinner.style.display = 'block';
+      btnArrow.style.display = 'none';
+    });
+  }
+})();
+</script>
+{% endblock %}

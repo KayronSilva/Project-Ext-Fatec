@@ -1,0 +1,41 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block extra_css %}
+<style>
+    /* ═══ TOPBAR ADMIN ═══ */
+    .topbar { position: sticky; top: 0; z-index: 100; background: var(--surface); border-bottom: 1px solid var(--border); }
+    .topbar__inner { max-width: 1100px; margin: 0 auto; padding: 0 24px; height: 56px; display: flex; align-items: center; gap: 12px; }
+    .topbar__back { display: flex; align-items: center; gap: 6px; color: var(--text-muted); font-size: 13px; }
+    .topbar__back:hover { color: var(--text); }
+    .topbar__title { font-size: 15px; font-weight: 700; flex: 1; }
+    .topbar__actions { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+
+    /* ═══ PAGE ADMIN ═══ */
+    .page { max-width: 1100px; margin: 0 auto; padding: 28px 24px; }
+    .page-header { margin-bottom: 24px; }
+    .page-header h1 { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+    .page-header p  { font-size: 13px; color: var(--text-muted); }
+
+    /* ═══ SPINNER ═══ */
+    .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,.4); border-top-color: #fff; border-radius: 50%; animation: spin .6s linear infinite; vertical-align: middle; margin-right: 6px; }
+    .spinner--blue { border-color: rgba(37,99,235,.2); border-top-color: var(--blue); }
+    @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+{% endblock %}
+
+{% block navbar %}
+<nav class="topbar">
+    <div class="topbar__inner">
+        <a href="{% url 'painel_admin' %}" class="topbar__back">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 2L4 7l5 5" stroke-linecap="round"/></svg>
+            Painel
+        </a>
+        <span class="topbar__title">{% block page_title %}Painel{% endblock %}</span>
+        <div class="topbar__actions">
+            {% block admin_actions %}{% endblock %}
+            <a href="{% url 'logout' %}" class="btn btn-ghost btn-sm">Sair</a>
+        </div>
+    </div>
+</nav>
+{% endblock %}

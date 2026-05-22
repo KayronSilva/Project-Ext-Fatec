@@ -1,0 +1,64 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Sistema de Gestão de Devoluções - Portal para clientes e administradores">
+    <title>{% block title %}Devoluções{% endblock %}</title>
+
+    <!-- Preconnect para performance -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    <!-- Google Fonts -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=Fira+Code:wght@400;500&display=swap">
+
+    <!-- Stylesheet global -->
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+
+    <!-- Estilos customizados por página -->
+    {% block extra_css %}{% endblock %}
+
+    <style>
+        /* Garantir que o botão dark-mode está bem posicionado */
+        .dark-mode-toggle {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            background: var(--surface);
+            border: 1.5px solid var(--border);
+            cursor: pointer;
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+            box-shadow: var(--shadow-sm);
+        }
+        
+        .dark-mode-toggle:hover {
+            background: var(--surface-2);
+            transform: scale(1.08);
+        }
+        
+        .dark-mode-toggle:active {
+            transform: scale(0.95);
+        }
+    </style>
+</head>
+<body>
+    <!-- Conteúdo da página -->
+    {% block content %}{% endblock %}
+
+    <!-- Dark Mode Script (carrega primeiro para evitar flash) -->
+    <script src="{% static 'js/dark-mode.js' %}"></script>
+
+    <!-- Scripts adicionais por página -->
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

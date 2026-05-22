@@ -1,0 +1,465 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Minhas Compras{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* ── Foto thumb ──────────────────────────────────────── */
+    .item-foto-wrap  { display:flex; align-items:center; gap:8px; margin-top:6px; }
+    .item-foto-thumb { width:52px; height:52px; object-fit:cover; border-radius:6px; border:1.5px solid var(--border); cursor:zoom-in; transition:transform .15s,box-shadow .15s; }
+    .item-foto-thumb:hover { transform:scale(1.06); box-shadow:0 4px 14px rgba(0,0,0,.18); }
+
+    /* ── Btn Perfil ──────────────────────────────────────── */
+    .btn-perfil { display:flex; align-items:center; gap:8px; padding:7px 14px; background:var(--surface-2); border:1.5px solid var(--border-strong); border-radius:var(--r-full); font-size:12.5px; font-weight:600; color:var(--text-2); cursor:pointer; transition:all .15s; font-family:'Sora',sans-serif; }
+    .btn-perfil:hover { border-color:var(--blue); color:var(--blue); background:var(--blue-bg); transform:translateY(-1px); box-shadow:var(--shadow-xs); }
+    .btn-perfil__avatar { width:26px; height:26px; border-radius:50%; background:var(--blue); display:flex; align-items:center; justify-content:center; color:#fff; font-size:11px; font-weight:700; flex-shrink:0; letter-spacing:-.3px; }
+
+    /* ── Progresso de devolução ──────────────────────────── */
+    .dev-progress-wrap { display:flex; align-items:center; gap:8px; }
+    .dev-progress-bar { flex:1; height:5px; background:var(--border); border-radius:99px; overflow:hidden; }
+    .dev-progress-fill { height:100%; border-radius:99px; background:var(--blue); transition:width .3s; }
+    .dev-progress-fill--full { background:#dc2626; }
+    .dev-progress-label { font-size:11px; color:var(--text-muted); white-space:nowrap; }
+
+    /* ── Badge prazo ─────────────────────────────────────── */
+    .prazo-badge { display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:600; padding:2px 8px; border-radius:99px; }
+    .prazo-badge--ok      { background:#f0fdf4; color:#15803d; border:1px solid #bbf7d0; }
+    .prazo-badge--urgente { background:#fff7ed; color:#c2410c; border:1px solid #fed7aa; }
+    .prazo-badge--expirado{ background:#fef2f2; color:#991b1b; border:1px solid #fecaca; }
+    .prazo-badge--sem-data{ background:var(--surface-2); color:var(--text-faint); border:1px solid var(--border); }
+
+    /* ── Btn iniciar devolução ───────────────────────────── */
+    .btn-devolver { display:inline-flex; align-items:center; gap:5px; padding:5px 12px; background:var(--blue); color:#fff; border:none; border-radius:var(--r-sm); font-size:11.5px; font-weight:600; font-family:'Sora',sans-serif; cursor:pointer; transition:opacity .15s,transform .15s; white-space:nowrap; }
+    .btn-devolver:hover   { opacity:.88; transform:translateY(-1px); }
+    .btn-devolver:disabled{ opacity:.4; cursor:not-allowed; transform:none; }
+    .btn-devolver--ghost { background:var(--surface-2); color:var(--text-2); border:1.5px solid var(--border); }
+    .btn-devolver--ghost:hover { border-color:var(--blue); color:var(--blue); opacity:1; }
+
+    /* ── status nota ─────────────────────────────────────── */
+    .nota-status-ativa    { color:#15803d; background:#f0fdf4; border-color:#bbf7d0; }
+    .nota-status-devolvida{ color:#7c3aed; background:#faf5ff; border-color:#e9d5ff; }
+    .nota-status-cancelada{ color:#991b1b; background:#fef2f2; border-color:#fecaca; }
+
+    /* ── Modal itens ─────────────────────────────────────── */
+    .modal-devs-section { padding:14px 24px; background:var(--surface-2); border-top:1px solid var(--border); flex-shrink:0; }
+    .modal-devs-title   { font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:var(--text-faint); margin-bottom:10px; }
+    .dev-pill { display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border:1.5px solid var(--border); border-radius:99px; font-size:11.5px; font-weight:600; color:var(--text-2); background:var(--surface-3); margin:3px; cursor:pointer; transition:border-color .15s; }
+    .dev-pill:hover { border-color:var(--blue); color:var(--blue); }
+    .dev-pill .status-badge { font-size:10px; padding:1px 6px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-wrapper page-wrapper--wide">
+
+    <!-- ── Header ─────────────────────────────────────────────── -->
+    <div class="page-header">
+        <div class="page-header__text">
+            <h1>Minhas Compras</h1>
+            <p>Notas fiscais associadas à sua conta</p>
+        </div>
+        <div class="page-header__actions">
+            {% if whatsapp_numero %}
+            <a href="https://wa.me/{{ whatsapp_numero|cut:' '|cut:'-'|cut:'('|cut:')' }}"
+               class="btn btn-ghost" target="_blank"
+               style="background:#25d366;color:white;border-color:#25d366;">
+                💬 WhatsApp
+            </a>
+            {% endif %}
+            <button class="btn-perfil" id="btn-abrir-perfil" type="button">
+                <div class="btn-perfil__avatar">{{ iniciais_usuario }}</div>
+                <span>{{ primeiro_nome }}</span>
+            </button>
+            <a href="{% url 'acompanhar_devolucoes' %}" class="btn btn-ghost">Minhas Devoluções</a>
+            <a href="{% url 'logout' %}" class="btn btn-ghost">Sair</a>
+        </div>
+    </div>
+
+    <!-- ── Card com tabela ────────────────────────────────────── -->
+    <div class="card">
+        <div class="tabs">
+            <button class="tab active" data-status="todas">
+                Todas <span class="tab-count">{{ contagens.todas }}</span>
+            </button>
+            <button class="tab" data-status="ativa">
+                Ativas <span class="tab-count {% if not contagens.ativa %}zero{% endif %}">{{ contagens.ativa }}</span>
+            </button>
+            <button class="tab" data-status="devolvida">
+                Devolvidas <span class="tab-count {% if not contagens.devolvida %}zero{% endif %}">{{ contagens.devolvida }}</span>
+            </button>
+            <button class="tab" data-status="cancelada">
+                Canceladas <span class="tab-count {% if not contagens.cancelada %}zero{% endif %}">{{ contagens.cancelada }}</span>
+            </button>
+            {% if contagens.pode_devolver %}
+            <button class="tab" data-status="pode_devolver">
+                Com saldo <span class="tab-count" style="background:var(--blue);color:#fff">{{ contagens.pode_devolver }}</span>
+            </button>
+            {% endif %}
+        </div>
+
+        <div class="toolbar">
+            <div class="search-wrap">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="6" cy="6" r="5"/><path d="m10.5 10.5 2.5 2.5" stroke-linecap="round"/></svg>
+                <input type="text" class="search-input" id="search-input"
+                       placeholder="Buscar por nº da nota, produto, cliente…">
+            </div>
+            <div class="toolbar-right">
+                <button class="density-btn" id="density-btn">
+                    <svg width="13" height="10" viewBox="0 0 13 10" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M0 1h13M0 5h13M0 9h13"/></svg>
+                    <span>Compacto</span>
+                </button>
+            </div>
+        </div>
+
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Nota Fiscal</th>
+                        <th class="th-sort">Emissão <span id="sort-icon">↕</span></th>
+                        <th style="text-align:center">Itens</th>
+                        <th>Devoluções</th>
+                        <th>Prazo</th>
+                        <th>Status</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody id="tbody">
+                    <!-- Linhas geradas pelo JS -->
+                    <tr id="no-rows-filter" style="display:none">
+                        <td colspan="7">
+                            <div class="empty-state">
+                                <div class="empty-state-icon">🔍</div>
+                                <h3>Nenhum resultado</h3>
+                                <p>Tente outro termo ou remova os filtros.</p>
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="pagination">
+            <span class="page-info" id="page-info"></span>
+            <div class="per-page-wrap">
+                <span>Linhas:</span>
+                <select class="per-page-select" id="per-page">
+                    <option value="10">10</option>
+                    <option value="20">20</option>
+                    <option value="50">50</option>
+                </select>
+            </div>
+            <div class="page-nav">
+                <button class="page-btn" id="btn-prev">&#8249;</button>
+                <button class="page-btn" id="btn-next">&#8250;</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<!-- Modal detalhes da nota                                    -->
+<!-- ══════════════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="modal-overlay">
+    <div class="modal modal--large" role="dialog" aria-modal="true"
+         style="display:flex;flex-direction:column;max-height:90vh">
+
+        <div class="modal-header" style="flex-shrink:0">
+            <div>
+                <h3 id="modal-title">Nota Fiscal —</h3>
+                <p id="modal-subtitle" style="color:var(--text-muted);font-size:13px;margin-top:2px"></p>
+            </div>
+            <button class="modal-close" id="btn-fechar-modal" aria-label="Fechar">
+                <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M1 1l9 9M10 1L1 10"/></svg>
+            </button>
+        </div>
+
+        <div class="modal-meta" id="modal-meta" style="flex-shrink:0"></div>
+
+        <!-- Devoluções vinculadas -->
+        <div class="modal-devs-section" id="modal-devs-section" style="flex-shrink:0;display:none">
+            <div class="modal-devs-title">🔄 Devoluções vinculadas</div>
+            <div id="modal-devs-pills"></div>
+        </div>
+
+        <!-- Ação: iniciar devolução -->
+        <div id="modal-action-bar" style="padding:12px 24px;background:var(--surface-2);border-top:1px solid var(--border);flex-shrink:0;display:none">
+            <button class="btn-devolver" id="btn-iniciar-dev">
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M10 2L2 10M2 2h8v8"/></svg>
+                Iniciar Devolução para esta nota
+            </button>
+            <span id="modal-action-hint" style="font-size:11.5px;color:var(--text-muted);margin-left:12px"></span>
+        </div>
+
+        <div class="modal-body" id="modal-body" style="overflow-y:auto;flex:1">
+            <div class="itens-title">Itens da Nota</div>
+            <div id="modal-itens"></div>
+        </div>
+
+        <div class="modal-footer" style="flex-shrink:0">
+            <button class="btn btn-ghost btn-sm" id="btn-fechar-modal-footer">Fechar</button>
+        </div>
+    </div>
+</div>
+
+<div id="toast-container" aria-live="polite" aria-atomic="true"
+     style="position:fixed;bottom:24px;right:24px;z-index:9999;display:flex;flex-direction:column;gap:8px"></div>
+
+<!-- Dados JSON -->
+<script id="notas-data" type="application/json">{{ notas_json|safe }}</script>
+
+<script>
+(function () {
+  'use strict';
+
+  const notas = JSON.parse(document.getElementById('notas-data').textContent);
+  let activeStatus = 'todas', query = '', sortDir = -1, page = 1, perPage = 10, compact = false;
+
+  /* ── Utilitários ─────────────────────────────────────── */
+  function esc(s) {
+    return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function toast(msg, type='success') {
+    const el = document.createElement('div');
+    el.style.cssText = `padding:10px 16px;border-radius:var(--r-sm);font-size:13px;font-weight:500;color:#fff;box-shadow:0 4px 14px rgba(0,0,0,.18);background:${type==='success'?'#16a34a':'#dc2626'}`;
+    el.textContent = msg;
+    document.getElementById('toast-container').appendChild(el);
+    setTimeout(()=>el.remove(), 3000);
+  }
+
+  function prazoBadge(nota) {
+    if (nota.expirado === null) return `<span class="prazo-badge prazo-badge--sem-data">—</span>`;
+    if (nota.expirado) return `<span class="prazo-badge prazo-badge--expirado">⚠ Expirado</span>`;
+    if (nota.dias_restantes <= 5) return `<span class="prazo-badge prazo-badge--urgente">⏳ ${nota.dias_restantes}d restantes</span>`;
+    return `<span class="prazo-badge prazo-badge--ok">✓ ${nota.dias_restantes}d restantes</span>`;
+  }
+
+  function statusBadge(nota) {
+    const map = { ativa:'ativa', devolvida:'devolvida', cancelada:'cancelada' };
+    const cls  = map[nota.status_calc] || 'ativa';
+    const label = { ativa:'Ativa', devolvida:'Devolvida', cancelada:'Cancelada' }[nota.status_calc] || nota.status_calc;
+    return `<span class="status-badge nota-status-${cls}">${label}</span>`;
+  }
+
+  function progresso(nota) {
+    if (!nota.total_itens) return '—';
+    const pct = nota.total_itens > 0 ? Math.round((nota.total_devolvido / nota.total_itens) * 100) : 0;
+    const full = pct >= 100;
+    return `<div class="dev-progress-wrap">
+      <div class="dev-progress-bar">
+        <div class="dev-progress-fill${full?' dev-progress-fill--full':''}" style="width:${pct}%"></div>
+      </div>
+      <span class="dev-progress-label">${nota.total_devolvido}/${nota.total_itens}</span>
+    </div>`;
+  }
+
+  /* ── Renderiza linhas ────────────────────────────────── */
+  function buildRow(nota) {
+    const tr = document.createElement('tr');
+    tr.className = 'dev-row';
+    tr.dataset.id     = nota.id;
+    tr.dataset.status = nota.status_calc;
+    tr.dataset.pode   = nota.pode_devolver ? '1' : '0';
+    tr.dataset.nota   = (nota.numero_nota || '').toLowerCase();
+    tr.dataset.date   = nota.data_emissao;
+    tr.setAttribute('onclick', `abrirModal(${nota.id})`);
+    tr.style.cursor = 'pointer';
+
+    const btnDev = nota.pode_devolver
+      ? `<button class="btn-devolver btn-devolver--ghost"
+              onclick="event.stopPropagation();iniciarDevolucao(${nota.id})"
+              title="Iniciar devolução">
+           ↩ Devolver
+         </button>`
+      : `<button class="btn-devolver btn-devolver--ghost" disabled title="${nota.expirado ? 'Prazo expirado' : 'Sem saldo disponível'}">
+           ↩ Devolver
+         </button>`;
+
+    tr.innerHTML = `
+      <td class="td-nota mono" style="font-weight:600">${esc(nota.numero_nota) || '—'}</td>
+      <td class="td-date">${esc(nota.data_emissao)}</td>
+      <td style="text-align:center">${nota.total_itens}</td>
+      <td>${progresso(nota)}</td>
+      <td>${prazoBadge(nota)}</td>
+      <td>${statusBadge(nota)}</td>
+      <td style="text-align:right">${btnDev}</td>`;
+    return tr;
+  }
+
+  /* ── Filtro ──────────────────────────────────────────── */
+  function filtered() {
+    const q = query.toLowerCase();
+    return notas.filter(n => {
+      const byStatus = activeStatus === 'todas'
+        ? true
+        : activeStatus === 'pode_devolver'
+          ? n.pode_devolver
+          : n.status_calc === activeStatus;
+      const byQuery  = !q || [n.numero_nota, n.cliente_nome, n.cliente_doc]
+        .some(v => v && String(v).toLowerCase().includes(q));
+      return byStatus && byQuery;
+    }).sort((a, b) => {
+      const da = a.data_emissao, db = b.data_emissao;
+      return sortDir * (da < db ? -1 : da > db ? 1 : 0);
+    });
+  }
+
+  function render() {
+    const tbody = document.getElementById('tbody');
+    // remove linhas antigas (mantém o no-rows-filter)
+    [...tbody.querySelectorAll('.dev-row')].forEach(r => r.remove());
+
+    const rows  = filtered();
+    const total = rows.length;
+    const start = (page - 1) * perPage;
+    const end   = Math.min(start + perPage, total);
+
+    document.getElementById('no-rows-filter').style.display = total === 0 ? '' : 'none';
+
+    const fragment = document.createDocumentFragment();
+    rows.slice(start, end).forEach(n => {
+      const tr = buildRow(n);
+      if (compact) tr.querySelectorAll('td').forEach(td => { td.style.paddingTop='9px'; td.style.paddingBottom='9px'; });
+      fragment.appendChild(tr);
+    });
+    tbody.insertBefore(fragment, document.getElementById('no-rows-filter'));
+
+    document.getElementById('page-info').textContent = `${total ? start+1 : 0}–${end} de ${total}`;
+    document.getElementById('btn-prev').disabled = page <= 1;
+    document.getElementById('btn-next').disabled = end >= total;
+  }
+
+  /* Eventos */
+  document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', function() {
+    document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+    this.classList.add('active');
+    activeStatus = this.dataset.status; page = 1; render();
+  }));
+  document.getElementById('search-input').addEventListener('input', function() {
+    query = this.value.trim(); page = 1; render();
+  });
+  document.querySelector('.th-sort')?.addEventListener('click', function() {
+    sortDir *= -1;
+    document.getElementById('sort-icon').textContent = sortDir === -1 ? '↓' : '↑';
+    render();
+  });
+  document.getElementById('btn-prev').addEventListener('click', () => { page--; render(); });
+  document.getElementById('btn-next').addEventListener('click', () => { page++; render(); });
+  document.getElementById('per-page').addEventListener('change', function() {
+    perPage = +this.value; page = 1; render();
+  });
+  document.getElementById('density-btn').addEventListener('click', function() {
+    compact = !compact;
+    this.querySelector('span').textContent = compact ? 'Espaçado' : 'Compacto';
+    render();
+  });
+
+  /* ── Navegação para devolução ────────────────────────── */
+  window.iniciarDevolucao = function(notaId) {
+    window.location.href = `{% url 'tela_devolucao' %}?nota_id=${notaId}`;
+  };
+
+  /* ── Modal ───────────────────────────────────────────── */
+  const overlay = document.getElementById('modal-overlay');
+
+  window.abrirModal = function(id) {
+    const nota = notas.find(n => n.id === id);
+    if (!nota) return;
+
+    document.getElementById('modal-title').textContent    = `Nota Fiscal ${nota.numero_nota || '—'}`;
+    document.getElementById('modal-subtitle').textContent = `${nota.total_itens} item(ns) · Emissão ${nota.data_emissao}`;
+
+    // Meta info
+    const metaItems = [
+      ['Nota', `<span class="meta-value mono">${esc(nota.numero_nota) || '—'}</span>`],
+      ['Emissão', `<span class="meta-value">${esc(nota.data_emissao)}</span>`],
+      ['Status', statusBadge(nota)],
+      ['Prazo', prazoBadge(nota)],
+    ];
+    if (nota.valor_total) {
+      metaItems.push(['Valor Total', `<span class="meta-value">R$ ${nota.valor_total.toLocaleString('pt-BR',{minimumFractionDigits:2})}</span>`]);
+    }
+    document.getElementById('modal-meta').innerHTML = metaItems
+      .map(([l,v]) => `<div class="meta-item"><span class="meta-label">${l}</span>${v}</div>`)
+      .join('');
+
+    // Devoluções vinculadas
+    const devsSection = document.getElementById('modal-devs-section');
+    const devsPills   = document.getElementById('modal-devs-pills');
+    if (nota.devolucoes && nota.devolucoes.length) {
+      devsSection.style.display = '';
+      devsPills.innerHTML = nota.devolucoes.map(d =>
+        `<a href="{% url 'acompanhar_devolucoes' %}" class="dev-pill">
+           #${d.pk}
+           <span class="status-badge status-${d.status}">${d.status_display}</span>
+           <span style="color:var(--text-faint);font-weight:400">${d.data}</span>
+         </a>`
+      ).join('');
+    } else {
+      devsSection.style.display = 'none';
+    }
+
+    // Barra de ação
+    const actionBar  = document.getElementById('modal-action-bar');
+    const btnDev     = document.getElementById('btn-iniciar-dev');
+    const actionHint = document.getElementById('modal-action-hint');
+
+    actionBar.style.display = '';
+    if (nota.pode_devolver) {
+      btnDev.disabled = false;
+      btnDev.onclick  = () => iniciarDevolucao(nota.id);
+      actionHint.textContent = nota.dias_restantes !== null
+        ? `${nota.dias_restantes} dia(s) restantes no prazo`
+        : '';
+    } else {
+      btnDev.disabled = true;
+      actionHint.textContent = nota.expirado
+        ? '⚠ Prazo de devolução expirado'
+        : nota.disponivel === 0
+          ? '✓ Todos os itens já foram devolvidos'
+          : 'Nota cancelada';
+    }
+
+    // Itens
+    document.getElementById('modal-itens').innerHTML = nota.itens && nota.itens.length
+      ? nota.itens.map(item => {
+          const pct  = item.quantidade_original > 0
+            ? Math.round((item.quantidade_devolvida / item.quantidade_original) * 100) : 0;
+          const full = pct >= 100;
+          return `
+          <div class="item-card">
+            <div class="item-icon">📦</div>
+            <div class="item-info">
+              <div class="item-desc">${esc(item.descricao)}</div>
+              <div class="item-code">Cód. ${esc(item.codigo)}</div>
+              <div class="dev-progress-wrap" style="margin-top:6px">
+                <div class="dev-progress-bar">
+                  <div class="dev-progress-fill${full?' dev-progress-fill--full':''}" style="width:${pct}%"></div>
+                </div>
+                <span class="dev-progress-label">${item.quantidade_devolvida}/${item.quantidade_original} devolvidos · <strong>${item.quantidade_disponivel}</strong> disponíveis</span>
+              </div>
+            </div>
+            <div class="qty-pill"><strong>${item.quantidade_original}</strong><span>un.</span></div>
+          </div>`;
+        }).join('')
+      : '<p style="color:var(--text-muted);font-size:13px;padding:4px 0">Sem itens registrados.</p>';
+
+    overlay.classList.add('open');
+    document.body.style.overflow = 'hidden';
+  };
+
+  function fecharModal() {
+    overlay.classList.remove('open');
+    document.body.style.overflow = '';
+  }
+  document.getElementById('btn-fechar-modal')?.addEventListener('click', fecharModal);
+  document.getElementById('btn-fechar-modal-footer')?.addEventListener('click', fecharModal);
+  overlay.addEventListener('click', e => { if (e.target === overlay) fecharModal(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') fecharModal(); });
+
+  render();
+})();
+</script>
+{% endblock %}
